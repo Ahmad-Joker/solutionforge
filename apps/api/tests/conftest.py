@@ -1,0 +1,93 @@
+"""Shared fixtures.
+
+The schema is always created by running the real Alembic migrations, so tests exercise
+the same DDL production uses. Backend selection:
+
+- ``SF_TEST_DATABASE_URL`` set (CI, docker compose): PostgreSQL.
+- otherwise: a temporary SQLite file (fast local loop, no services needed).
+"""
+
+from __future__ import annotations
+
+import os
+from collections.abc import AsyncIterator
+from pathlib import Path
+
+import pytest
+import sqlalchemy as sa
+from alembic import command
+from alembic.config import Config
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from solutionforge.core.config import Environment, Settings
+from solutionforge.db.base import Base
+from solutionforge.main import create_app
+from tests.helpers import Api
+
+API_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="session")
+def database_url(tmp_path_factory: pytest.TempPathFactory) -> str:
+    url = os.environ.get("SF_TEST_DATABASE_URL")
+    if url is None:
+        db_file = tmp_path_factory.mktemp("db") / "test.db"
+        url = f"sqlite+aiosqlite:///{db_file.as_posix()}"
+    cfg = Config(str(API_ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(API_ROOT / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    cfg.attributes["configure_logger"] = False
+    command.downgrade(cfg, "base")  # clean slate on a reused Postgres database
+    command.upgrade(cfg, "head")
+    return url
+
+
+@pytest.fixture
+def settings(database_url: str) -> Settings:
+    return Settings(
+        environment=Environment.TEST,
+        database_url=database_url,
+        jwt_secret="test-secret-that-is-at-least-32-characters-long",  # type: ignore[arg-type]
+        log_json=False,
+        log_level="WARNING",
+    )
+
+
+@pytest.fixture
+async def app(settings: Settings) -> AsyncIterator[FastAPI]:
+    application = create_app(settings)
+    yield application
+    await _truncate_all(application)
+    await application.state.engine.dispose()
+
+
+@pytest.fixture
+async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+
+
+@pytest.fixture
+def api(client: AsyncClient) -> Api:
+    return Api(client)
+
+
+@pytest.fixture
+async def db(app: FastAPI) -> AsyncIterator[AsyncSession]:
+    """Direct DB access for assertions the API does not expose."""
+    async with app.state.sessionmaker() as session:
+        yield session
+
+
+async def _truncate_all(app: FastAPI) -> None:
+    tables = [t.name for t in reversed(Base.metadata.sorted_tables)]
+    async with app.state.engine.begin() as conn:
+        if conn.dialect.name == "postgresql":
+            # TRUNCATE bypasses the row-level append-only trigger on audit_events.
+            await conn.execute(sa.text(f"TRUNCATE {', '.join(tables)} CASCADE"))
+        else:
+            for name in tables:
+                await conn.execute(sa.text(f"DELETE FROM {name}"))  # noqa: S608 (static names)
