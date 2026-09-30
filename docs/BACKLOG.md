@@ -51,12 +51,21 @@ Acceptance criteria:
 - [x] Live run with separate API and worker processes
 - [ ] Suite run on PostgreSQL (CI only; no local Docker/Postgres)
 
-## Phase 3 — LLM provider abstraction
-`LLMProvider` protocol; Anthropic + OpenAI-compatible + deterministic `MockProvider`.
-Structured output with schema validation and repair-retry; fallback chain; circuit breaker;
-UsageRecord for every call (tokens, latency, cost); org budgets (daily/monthly/per-execution).
-**Accept when:** invalid JSON from the model is retried and then fails cleanly; exceeding the
-budget stops execution; no module outside `llm/` imports a vendor SDK (import-linter).
+## Phase 3 — LLM provider abstraction ✅
+
+- [x] `LLMProvider` protocol; deterministic scriptable `MockProvider`; Anthropic adapter (official SDK, SDK retries disabled)
+- [x] Adapter tested through the real SDK with an HTTP mock transport (request shape, usage/cache mapping, error classes, no hidden retries)
+- [x] Structured output: native schema for capable providers, prompt instruction otherwise; JSON-Schema validation; repair turns
+- [x] Retries with jittered exponential backoff (honours `retry-after`); per-call timeout; model fallback chain; per-model circuit breaker
+- [x] Every attempt metered (`usage_records`, integer micro-USD); price table; unpriced models rejected
+- [x] Budgets: org daily/monthly/per-execution (API + audit), workflow `max_cost_usd` / `max_llm_tokens`; pre-checked with worst-case estimates
+- [x] `llm` step type: templated prompts, schema-validated JSON usable by later steps, failure → retryable/non-retryable/budget_exceeded
+- [x] Usage APIs (summary, records) and per-execution LLM usage in the execution detail
+- [x] Vendor SDK import boundary enforced by a test
+- [x] Tenant isolation, RBAC, key secrecy and data minimisation tests
+- [x] Live run: API + worker + mock provider; cost verified by hand
+- [ ] Real Anthropic call (needs an API key; the adapter is tested against recorded API shapes only)
+- [ ] OpenAI-compatible adapter (deferred; the abstraction is proven with two providers)
 
 ## Phase 4 — Tool interface + simulated tools
 `Tool` spec (name, description, input/output schema, permission, risk level, timeout, retry,
@@ -118,5 +127,10 @@ queue depth), Grafana dashboards as code.
 - The expression language has no arithmetic. Add a small safe set (`add`, `len`, …) when a
   real workflow needs counters.
 - Worker wake-up latency equals the poll interval. Add Redis or `LISTEN/NOTIFY` wake-ups.
+- Budget pre-checks can overshoot under concurrency (bounded by concurrency × worst case);
+  consider spend reservations for strict caps.
+- The circuit breaker is per process; share its state via Redis when running many workers.
+- Verify the Anthropic price table against the pricing page before billing customers on it.
+- Streaming for large `max_tokens` (the SDK recommends streaming for long outputs).
 - Refresh-token reuse detection also fires on a benign client retry after a lost response.
   Consider a short grace window.

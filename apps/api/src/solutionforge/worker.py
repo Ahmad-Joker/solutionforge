@@ -9,6 +9,7 @@ import signal
 from solutionforge.core.config import get_settings
 from solutionforge.core.logging import configure_logging
 from solutionforge.db.session import build_engine, build_sessionmaker
+from solutionforge.llm.factory import build_llm_service
 from solutionforge.workflows.engine import Engine
 from solutionforge.workflows.steps import default_registry
 from solutionforge.workflows.worker import Worker
@@ -18,7 +19,9 @@ async def main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level, json=settings.log_json)
     db = build_engine(settings.database_url)
-    engine = Engine(build_sessionmaker(db), default_registry())
+    sessionmaker = build_sessionmaker(db)
+    registry = default_registry(build_llm_service(settings, sessionmaker))
+    engine = Engine(sessionmaker, registry)
     worker = Worker(
         engine,
         concurrency=settings.worker_concurrency,

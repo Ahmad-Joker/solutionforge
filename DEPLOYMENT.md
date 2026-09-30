@@ -14,6 +14,11 @@ and `.env.example`).
 | `SF_JWT_SECRET` | **yes outside dev/test** | ephemeral in dev | ≥ 32 chars; the app refuses to start without it in staging/production |
 | `SF_ACCESS_TOKEN_TTL_SECONDS` | no | 900 | 60–86400 |
 | `SF_REFRESH_TOKEN_TTL_SECONDS` | no | 1209600 | |
+| `SF_LLM_ENABLE_MOCK` | no | `true` | deterministic mock provider (models `mock:mock-1`, `mock:mock-fast`, synthetic prices) |
+| `SF_ANTHROPIC_API_KEY` | no | unset | enables the `anthropic:*` models (`claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`) |
+| `SF_LLM_PRICE_OVERRIDES` | no | `{}` | JSON `{"provider:model": {"input","output","cache_read","cache_write"}}` in USD per MTok |
+| `SF_LLM_BREAKER_FAILURE_THRESHOLD` / `_RECOVERY_SECONDS` | no | `5` / `30` | per-model circuit breaker |
+| `SF_WORKER_CONCURRENCY` / `SF_WORKER_POLL_INTERVAL_SECONDS` | no | `4` / `1.0` | worker process |
 | `SF_CORS_ORIGINS` | no | `["http://localhost:3000"]` | JSON list |
 | `SF_LOG_JSON` / `SF_LOG_LEVEL` | no | `true` / `INFO` | |
 

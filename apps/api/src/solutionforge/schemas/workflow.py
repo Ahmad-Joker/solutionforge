@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
@@ -110,5 +111,12 @@ class ExecutionOut(BaseModel):
     finished_at: datetime | None
 
 
+class LLMUsageOut(BaseModel):
+    calls: int
+    tokens: int
+    cost_usd: Decimal
+
+
 class ExecutionDetailOut(ExecutionOut):
     steps: list[ExecutionStepOut]
+    llm_usage: LLMUsageOut

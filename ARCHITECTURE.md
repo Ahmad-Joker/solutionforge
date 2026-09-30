@@ -62,7 +62,7 @@ flowchart LR
 
   subgraph Runtime["Worker process ✅"]
     ENG[Workflow engine: durable state machine ✅]
-    LLM[LLM provider abstraction ⬜]
+    LLM[LLMService: providers, retry, fallback, breaker, metering, budgets ✅]
     TOOLS[Tool registry + connectors ⬜]
     RET[Retrieval: dense / BM25 / hybrid ⬜]
   end
@@ -126,7 +126,7 @@ erDiagram
 | Approval | ⬜ Phase 8 | |
 | KnowledgeBase, Document, Chunk | ⬜ Phase 6 | `vector` column via pgvector |
 | EvaluationDataset/Case/Run, DeploymentDecision | ⬜ Phase 11 | |
-| UsageRecord, OrgBudget | ⬜ Phase 3 | every model call metered |
+| UsageRecord, OrgBudget | ✅ | migration `0003`. One row per provider attempt (success or failure), integer micro-USD, with no prompt or output content |
 
 **Tenancy invariant.** Every tenant-owned table inherits `TenantScopedMixin`
 (`organization_id NOT NULL`, FK `ON DELETE CASCADE`, indexed). You can only get a
@@ -187,6 +187,7 @@ caller's membership **before** any handler code runs. It never comes from a requ
 | Tools | `GET/POST …/tools`, `PUT …/tools/{id}/policy` | ⬜ |
 | Knowledge | `…/knowledge-bases`, `…/documents` (upload → async ingestion) | ⬜ |
 | Evaluation | `…/eval-datasets`, `…/eval-runs`, `…/deployments` (gate decisions) | ⬜ |
+| Usage & budgets | `GET …/usage/summary`, `GET …/usage/records`, `GET/PUT …/budget` | ✅ |
 | Ops | `GET /healthz` (liveness), `GET /readyz` (DB check), `/metrics` ⬜ | ✅/⬜ |
 
 **Error contract** (every non-2xx response):
@@ -204,7 +205,7 @@ A **WorkflowVersion** is an immutable, validated graph of typed steps:
 | `condition` ✅ | the first matching branch wins (`all`/`any`/`not`, 11 operators, no `eval`) | no |
 | `approval` ✅ | human checkpoint; `resume` with `{approved, comment, data}`; `on_reject` route | yes |
 | `fail` ✅ | terminate with a coded error | no |
-| `llm` ⬜ P3 | prompt template + structured output schema → validated JSON | no |
+| `llm` ✅ | prompt template (+ optional JSON Schema) → text or validated JSON, via LLMService | no |
 | `retrieve` ⬜ P6 | query a knowledge base with metadata filters; returns chunks with IDs | no |
 | `tool` ⬜ P4/7 | propose a tool call → **policy engine** → execute / suspend / deny | yes (approval) |
 | `agent` ⬜ P5 | bounded tool-use loop (max iterations), each call still policy-checked | yes |
@@ -290,7 +291,54 @@ tenant's policy, and the caller's role. It is deterministic code and never consu
 | `EXTERNAL_ACTION` | approval (`approval:decide`) |
 | `HIGH_RISK` | privileged approval (`approval:decide_high_risk`) |
 
-## 7. Cross-cutting decisions
+## 7. LLM layer ✅ (Phase 3)
+
+```mermaid
+flowchart LR
+  STEP[llm step] --> SVC[LLMService.generate]
+  SVC --> PRICE{model priced?}
+  PRICE -- no --> REJ[InvalidRequest]
+  PRICE -- yes --> CB{breaker allows?}
+  CB -- no --> NEXT[next model]
+  CB -- yes --> BUD{budget pre-check<br/>worst case}
+  BUD -- over --> BX[BudgetExceeded → execution budget_exceeded]
+  BUD -- ok --> CALL[provider.complete under timeout]
+  CALL --> METER[(usage_records)]
+  CALL -- transient --> RETRY[backoff + retry] --> CB
+  CALL -- refusal / truncated / retries exhausted --> NEXT
+  CALL -- ok --> VAL{schema valid?}
+  VAL -- no, repairs left --> REPAIR[repair turn] --> CB
+  VAL -- no --> NEXT
+  VAL -- yes --> OUT[LLMResult]
+```
+
+- **Single entry point.** Everything calls `LLMService.generate`. Vendor SDKs are imported
+  only in `llm/providers/`, which a test enforces.
+- **Providers.**
+  - `mock` is deterministic: by default it returns minimal schema-valid JSON, and it can be
+    scripted to fail in every way the service handles.
+  - `anthropic` uses the official SDK, with the SDK's own retries **disabled** so every
+    attempt is visible to the service and metered exactly once.
+- **Metering.** Every attempt, including failed, refused and repaired ones, is written to
+  `usage_records` in its own transaction. The ledger never stores prompt or output text.
+- **Money.** Costs are integer micro-USD computed from a price table. A model without a price
+  can't be used, and definitions naming one fail to compile.
+- **Budgets.** Limits are checked **before** each call using a worst-case estimate (input
+  estimate plus `max_tokens`):
+  - org daily and monthly limits;
+  - a per-execution limit, the lower of the org's `per_execution` and the workflow's
+    `limits.max_cost_usd`;
+  - a per-execution token limit (`limits.max_llm_tokens`).
+
+  A step that trips a budget ends the execution as `budget_exceeded`. It bypasses retries and
+  `on_error`, so a fallback path can't keep spending.
+- **Failure mapping in workflows.**
+  - When every model fails for transient reasons, the step error is retryable, so the
+    engine's step retry and backoff apply.
+  - Deterministic failures (invalid output after repairs, refusals) are not retryable, so
+    they fail fast.
+
+## 8. Cross-cutting decisions
 
 - **Time:** all timestamps are timezone-aware UTC. A `UTCDateTime` column type rejects naive values.
 - **IDs:** UUIDv4 everywhere. Nothing sequential is exposed.

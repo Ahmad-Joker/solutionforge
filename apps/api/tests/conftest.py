@@ -23,6 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from solutionforge.core.config import Environment, Settings
 from solutionforge.db.base import Base
+from solutionforge.llm.providers.mock import MockProvider
+from solutionforge.llm.service import LLMService, RetryConfig
 from solutionforge.main import create_app
 from solutionforge.workflows.engine import Engine
 from solutionforge.workflows.steps import default_registry
@@ -109,7 +111,7 @@ async def _truncate_all(app: FastAPI) -> None:
 @pytest.fixture
 def test_steps(app: FastAPI) -> InstrumentedSteps:
     """Registers fault-injection step types on the app's registry (API + engine share it)."""
-    registry = default_registry()
+    registry = default_registry(app.state.llm_service)
     steps = InstrumentedSteps(CountStep(), FlakyStep(), CrashStep())
     for handler in (
         steps.count,
@@ -129,3 +131,13 @@ def test_steps(app: FastAPI) -> InstrumentedSteps:
 @pytest.fixture
 def engine(app: FastAPI, test_steps: InstrumentedSteps) -> Engine:
     return Engine(app.state.sessionmaker, app.state.step_registry, worker_id="worker-1")
+
+
+@pytest.fixture
+def mock_llm(app: FastAPI) -> MockProvider:
+    """The app's mock LLM provider, with backoff sleeps disabled for fast tests."""
+    service: LLMService = app.state.llm_service
+    service.retry = RetryConfig(backoff_base_seconds=0.0, backoff_max_seconds=0.0)
+    provider = service.providers["mock"]
+    assert isinstance(provider, MockProvider)
+    return provider

@@ -12,12 +12,14 @@ import hashlib
 import json
 from collections import deque
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
 
 from solutionforge.core.errors import ValidationFailed
+from solutionforge.llm.pricing import usd_to_micro
 from solutionforge.workflows import expressions
 from solutionforge.workflows.registry import StepHandler, StepRegistry, UnknownStepType
 
@@ -46,6 +48,16 @@ class Limits(_Strict):
     max_active_seconds: float = Field(
         default=300, ge=1, le=3600, description="Time spent running steps (excludes waiting)"
     )
+    max_cost_usd: Decimal | None = Field(
+        default=None, gt=0, le=10_000, description="LLM spend cap for one execution"
+    )
+    max_llm_tokens: int | None = Field(
+        default=None, gt=0, le=50_000_000, description="LLM token cap for one execution"
+    )
+
+    @property
+    def max_cost_micro_usd(self) -> int | None:
+        return None if self.max_cost_usd is None else usd_to_micro(self.max_cost_usd)
 
 
 class InputField(_Strict):

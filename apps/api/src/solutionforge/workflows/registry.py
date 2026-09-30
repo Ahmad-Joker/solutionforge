@@ -33,12 +33,16 @@ class StepError(Exception):
         retryable: bool = False,
         code: str = "step_failed",
         details: dict[str, Any] | None = None,
+        exhausts_budget: bool = False,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.retryable = retryable
         self.code = code
         self.details = details or {}
+        # Ends the execution as budget_exceeded (not failed), bypassing retries/on_error:
+        # a fallback path must not be a way to keep spending past a budget.
+        self.exhausts_budget = exhausts_budget
 
 
 class _UseDefault:
@@ -75,6 +79,8 @@ class StepContext:
     attempt: int
     scope: expressions.Scope  # read-only snapshot: input / state / steps
     deadline: float  # time.monotonic() value; the engine also enforces it
+    cost_limit_micro_usd: int | None = None  # from the definition's limits.max_cost_usd
+    llm_token_limit: int | None = None  # from limits.max_llm_tokens
 
     @property
     def idempotency_key(self) -> str:

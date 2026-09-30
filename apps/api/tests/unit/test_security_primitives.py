@@ -122,3 +122,15 @@ def test_short_jwt_secret_rejected() -> None:
 def test_dev_generates_ephemeral_secret() -> None:
     s = Settings(environment=Environment.DEV, jwt_secret=None)
     assert len(s.jwt_secret_value) >= 32
+
+
+def test_blank_secrets_in_env_files_mean_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: `cp .env.example .env` left SF_JWT_SECRET= blank, which crashed startup,
+    and a blank SF_ANTHROPIC_API_KEY= would have enabled the provider with an empty key."""
+    monkeypatch.setenv("SF_JWT_SECRET", "")
+    monkeypatch.setenv("SF_ANTHROPIC_API_KEY", "  ")
+    s = Settings(environment=Environment.DEV)
+    assert s.anthropic_api_key is None
+    assert len(s.jwt_secret_value) >= 32  # dev generates an ephemeral one
+    with pytest.raises(ValueError, match="SF_JWT_SECRET"):
+        Settings(environment=Environment.PRODUCTION)

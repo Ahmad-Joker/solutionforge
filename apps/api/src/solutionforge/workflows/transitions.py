@@ -189,6 +189,14 @@ def on_failure(
     spec = step.spec
     error = error_dict(err, step_id=spec.id, attempt=attempt)
 
+    if err.exhausts_budget:
+        return Transition(
+            values=terminal_values(ExecutionStatus.BUDGET_EXCEEDED, now, error=error),
+            step_status=step_status,
+            step_error=error,
+            terminal=True,
+        )
+
     if err.retryable and not final and 0 < attempt < spec.retry.max_attempts:
         delay = spec.retry.backoff_seconds(attempt)
         return Transition(

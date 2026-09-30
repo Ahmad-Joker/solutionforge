@@ -19,6 +19,8 @@ dependencies = [
     "pyjwt>=2.9",
     "email-validator>=2.2",
     "structlog>=24.4",
+    "anthropic>=1.11",
+    "jsonschema>=4.23",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +32,7 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.6",
     "mypy>=1.11",
+    "types-jsonschema",
 ]
 
 [tool.hatch.build.targets.wheel]

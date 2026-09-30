@@ -2,7 +2,7 @@
 
 **A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
 
-> **Project status: Phases 0–2 of 19 complete.** This README only describes what exists and is
+> **Project status: Phases 0–3 of 19 complete.** This README only describes what exists and is
 > tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
 > [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
 > once they exist and are measured.
@@ -17,6 +17,7 @@
 | **Invitations** | Email-bound, single-use, expiring, hashed at rest |
 | **Audit log** | Security events written in the *same transaction* as the action; recursive secret redaction; **PostgreSQL trigger makes the table append-only** |
 | **Workflow engine** | Versioned workflow definitions, validated as graphs; explicit deployments with rollback; a durable worker with **leases and fenced checkpoints**. After a crash mid-step, another worker resumes from the last saved step, and completed steps don't re-run. Retries with exponential backoff, timeouts, `on_error` fallbacks, **step and time budgets**, human-approval suspend/resume, cancellation, idempotent starts |
+| **LLM layer** | One `LLMService` for every model call. Providers: a **deterministic mock** (no API key needed) and **Anthropic via the official SDK**. **JSON-Schema-validated structured output with repair**, retries with backoff, model fallback, a circuit breaker, **every attempt metered in micro-USD**, and org, execution and token **budgets enforced before each call** |
 | **API quality** | Versioned `/api/v1`, OpenAPI at `/docs`, uniform error envelope, request-ID propagation, structured JSON logs, liveness and readiness probes |
 | **Engineering** | Alembic migrations with a drift test; strict mypy; ruff (incl. bandit rules); CI on real PostgreSQL; Dockerfile (non-root) + compose stack |
 
@@ -71,6 +72,7 @@ SF_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/sf_test pytes
 | `tests/unit` | RBAC matrix is monotonic; token forgery (alg=none, wrong key/aud/iss/typ) fails; redaction; config refuses weak secrets |
 | `tests/integration` | Auth lifecycle, refresh rotation and reuse detection, invitations, role rules, audit trail, migration drift, **concurrent refresh / registration races resolve to exactly one winner** |
 | `tests/integration/test_engine.py` | Branching, loops stopped by the step budget, timeouts, retries/backoff, fallbacks, **crash-and-resume on another worker**, poison pills, **a stale worker can't overwrite**, a single claim under contention, and the worker loop |
+| `tests/unit/test_llm.py`, `test_claude_adapter.py` | Pricing math, repair, backoff, fallback, breaker, budgets; the Anthropic adapter driven through the real SDK over a mock HTTP transport; the vendor-import boundary |
 | `tests/security` | Every tenant route attacked cross-tenant (incl. confused deputy); full role × endpoint matrix over HTTP; append-only audit on PostgreSQL |
 
 The schema is always created by running the real Alembic migrations, never `create_all`.
@@ -89,7 +91,7 @@ Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
 
 ## Roadmap
 
-LLM provider abstraction and metering → tools/connectors → agent
+Tools/connectors → agent
 orchestration → RAG with verified citations → policy engine → human approvals → dashboard →
 evaluation and quality-gated deployment → observability → cloud deployment → security and load
 testing → three customer case studies. Details and acceptance criteria are in

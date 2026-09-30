@@ -2,6 +2,7 @@
 
 from solutionforge.domain.audit import AuditEvent, AuditEventType
 from solutionforge.domain.identity import Invitation, Membership, Organization, RefreshToken, User
+from solutionforge.domain.usage import OrgBudget, UsageRecord
 from solutionforge.domain.workflow import (
     Execution,
     ExecutionStatus,
@@ -20,9 +21,11 @@ __all__ = [
     "ExecutionStep",
     "Invitation",
     "Membership",
+    "OrgBudget",
     "Organization",
     "RefreshToken",
     "StepStatus",
+    "UsageRecord",
     "User",
     "Workflow",
     "WorkflowDeployment",

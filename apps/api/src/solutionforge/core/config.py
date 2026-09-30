@@ -6,7 +6,7 @@ import secrets
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,7 +42,20 @@ class Settings(BaseSettings):
     worker_poll_interval_seconds: float = Field(default=1.0, gt=0, le=60)
     max_execution_input_bytes: int = Field(default=256 * 1024, ge=1024)
 
+    # LLM. The mock provider needs no credentials; Anthropic is enabled iff a key is set.
+    llm_enable_mock: bool = True
+    anthropic_api_key: SecretStr | None = None
+    llm_price_overrides: dict[str, dict[str, str]] = Field(default_factory=dict)
+    llm_breaker_failure_threshold: int = Field(default=5, ge=1, le=100)
+    llm_breaker_recovery_seconds: float = Field(default=30.0, gt=0, le=3600)
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+
+    @field_validator("jwt_secret", "anthropic_api_key", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, v: object) -> object:
+        # `SF_JWT_SECRET=` in an env file means "not configured", not "an empty secret".
+        return None if isinstance(v, str) and not v.strip() else v
 
     @model_validator(mode="after")
     def _require_secrets(self) -> Settings:

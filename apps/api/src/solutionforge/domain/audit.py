@@ -43,6 +43,8 @@ class AuditEventType(StrEnum):
     EXECUTION_CANCELLED = "execution.cancelled"
     EXECUTION_RESUMED = "execution.resumed"
 
+    BUDGET_UPDATED = "budget.updated"
+
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_events"

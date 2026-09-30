@@ -8,6 +8,7 @@ from fastapi import APIRouter, Query, Response, status
 
 from solutionforge.api.deps import RegistryDep, RequestMetaDep, SessionDep, SettingsDep, TenantDep
 from solutionforge.domain.workflow import Execution, ExecutionStatus, ExecutionStep
+from solutionforge.llm.pricing import micro_to_usd
 from solutionforge.schemas.workflow import (
     CreateExecutionRequest,
     CreateVersionRequest,
@@ -17,10 +18,12 @@ from solutionforge.schemas.workflow import (
     ExecutionDetailOut,
     ExecutionOut,
     ExecutionStepOut,
+    LLMUsageOut,
     ResumeRequest,
     VersionOut,
     WorkflowOut,
 )
+from solutionforge.services import usage_service
 from solutionforge.services import workflow_service as svc
 
 router = APIRouter(prefix="/orgs/{org_id}", tags=["workflows"])
@@ -37,10 +40,14 @@ def _wf_out(s: svc.WorkflowSummary) -> WorkflowOut:
     )
 
 
-def _detail(ex: Execution, steps: list[ExecutionStep]) -> ExecutionDetailOut:
+async def _detail(
+    session: SessionDep, ex: Execution, steps: list[ExecutionStep]
+) -> ExecutionDetailOut:
+    calls, tokens, cost = await usage_service.execution_totals(session, ex.organization_id, ex.id)
     return ExecutionDetailOut(
         **ExecutionOut.model_validate(ex).model_dump(),
         steps=[ExecutionStepOut.model_validate(s) for s in steps],
+        llm_usage=LLMUsageOut(calls=calls, tokens=tokens, cost_usd=micro_to_usd(cost)),
     )
 
 
@@ -213,7 +220,8 @@ async def list_executions(
 async def get_execution(
     execution_id: uuid.UUID, session: SessionDep, ctx: TenantDep
 ) -> ExecutionDetailOut:
-    return _detail(*await svc.get_execution(session, ctx, execution_id))
+    ex, steps = await svc.get_execution(session, ctx, execution_id)
+    return await _detail(session, ex, steps)
 
 
 @router.post("/executions/{execution_id}/cancel", response_model=ExecutionOut)

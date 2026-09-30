@@ -49,6 +49,10 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | GET | `/orgs/{org_id}/executions/{id}` | `workflow:read` | includes the ordered step trail |
 | POST | `/orgs/{org_id}/executions/{id}/cancel` | `workflow:execute` | running executions stop before their next step |
 | POST | `/orgs/{org_id}/executions/{id}/resume` | `approval:decide` | `{payload: {approved, comment?, data?}}` for approval steps |
+| GET | `/orgs/{org_id}/usage/summary` | `usage:read` | per model: calls, failures, tokens, cost, avg latency; `since`/`until`/`execution_id` |
+| GET | `/orgs/{org_id}/usage/records` | `usage:read` | every provider attempt; `execution_id`, `before`, `limit` ≤ 500 |
+| GET | `/orgs/{org_id}/budget` | `usage:read` | `null` = unlimited |
+| PUT | `/orgs/{org_id}/budget` | `org:manage` | `{daily_limit_usd, monthly_limit_usd, per_execution_limit_usd}` (decimal strings, ≤ 6 dp); audited |
 | GET | `/healthz`, `/readyz` | public | liveness / readiness (DB) |
 
 ## Walkthrough
