@@ -17,12 +17,17 @@ from solutionforge.domain.identity import User
 from solutionforge.security.tokens import decode_access_token
 from solutionforge.services import auth_service, org_service
 from solutionforge.services.audit_service import RequestMeta
+from solutionforge.workflows.registry import StepRegistry
 
 _bearer = HTTPBearer(auto_error=False)
 
 
 def get_settings(request: Request) -> Settings:
     return request.app.state.settings  # type: ignore[no-any-return]
+
+
+def get_registry(request: Request) -> StepRegistry:
+    return request.app.state.step_registry  # type: ignore[no-any-return]
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -44,6 +49,7 @@ def get_request_meta(request: Request) -> RequestMeta:
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 RequestMetaDep = Annotated[RequestMeta, Depends(get_request_meta)]
+RegistryDep = Annotated[StepRegistry, Depends(get_registry)]
 
 
 async def get_current_user(

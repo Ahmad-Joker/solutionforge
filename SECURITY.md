@@ -36,6 +36,10 @@ actions, audit history, and model spend.
 | T14 | PII exfiltration via tools/LLM | Agent asked to dump customer data | Tool output filtering, per-tool data scopes, adversarial eval set | ⬜ Phase 16 |
 | T15 | Runaway cost / infinite loops | Agent loops, huge contexts | Step, time, token and cost budgets per execution and org | ⬜ Phase 3/5 |
 | T16 | Connector credential theft | DB read access | Envelope-encrypted credentials, never returned by the API | ⬜ Phase 4 |
+| T18 | Code execution via workflow definitions | A malicious admin or a compromised account submits a definition | No eval: a closed expression language (references, templates, 11 predicates, no calls or regex); step types come from a server-side registry; configs are schema-validated | ✅ |
+| T19 | Split-brain workers double-applying progress | GC pause or partition past the lease | Fenced writes (`lease_owner = me`), per-step leases, unique `(execution_id, seq)`; side-effect steps receive an idempotency key | ✅ |
+| T20 | Execution history tampering | Rewriting step records after the fact | Engine only inserts; PG trigger rejects UPDATE on `execution_steps` | ✅ |
+| T21 | Resource exhaustion by definitions or inputs | Infinite loops, huge state or inputs | `max_steps`, `max_active_seconds`, per-step timeouts, 256 KB input and step-output caps, 1 MB state cap, ≤ 200 steps per definition | ✅ |
 | T17 | Supply-chain vulnerabilities | Vulnerable dependencies | `pip-audit` in CI; pinned base images | 🟡 |
 
 ## Known gaps (tracked in the backlog)

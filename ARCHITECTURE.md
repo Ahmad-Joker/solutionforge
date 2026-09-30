@@ -53,15 +53,15 @@ flowchart LR
     ORG[Org / members / invitations ✅]
     AUD[Audit log ✅]
     RBAC[RBAC matrix ✅]
-    WF[Workflow definitions + versions ⬜]
+    WF[Workflow definitions, versions, deployments ✅]
     POL[Policy engine ⬜]
     APR[Approvals ⬜]
     EVAL[Evaluation + deploy gates ⬜]
     KB[Knowledge bases / ingestion ⬜]
   end
 
-  subgraph Runtime["Worker process"]
-    ENG[Workflow engine: durable state machine ⬜]
+  subgraph Runtime["Worker process ✅"]
+    ENG[Workflow engine: durable state machine ✅]
     LLM[LLM provider abstraction ⬜]
     TOOLS[Tool registry + connectors ⬜]
     RET[Retrieval: dense / BM25 / hybrid ⬜]
@@ -121,7 +121,7 @@ erDiagram
 |---|---|---|
 | User, Organization, Membership, Invitation, RefreshToken | ✅ | migration `0001` |
 | AuditEvent | ✅ | append-only; PG trigger rejects UPDATE/DELETE |
-| Workflow, WorkflowVersion, Execution, ExecutionStep | ⬜ Phase 2 | versions immutable once published |
+| Workflow, WorkflowVersion, WorkflowDeployment, Execution, ExecutionStep | ✅ | migration `0002`. Versions are immutable. Deployments are append-only (rollback = new row). A PG trigger rejects UPDATE on execution_steps |
 | Tool, ToolPermission | ⬜ Phase 4/7 | risk level on every tool |
 | Approval | ⬜ Phase 8 | |
 | KnowledgeBase, Document, Chunk | ⬜ Phase 6 | `vector` column via pgvector |
@@ -181,8 +181,8 @@ caller's membership **before** any handler code runs. It never comes from a requ
 | Members | `GET /orgs/{org_id}/members`, `PATCH/DELETE /orgs/{org_id}/members/{user_id}` | ✅ |
 | Invitations | `POST/GET /orgs/{org_id}/invitations`, `DELETE …/{id}`, `POST /invitations/accept` | ✅ |
 | Audit | `GET /orgs/{org_id}/audit-events` (cursor pagination, type filter) | ✅ |
-| Workflows | `…/workflows`, `…/workflows/{id}/versions`, `…/versions/{v}/publish` | ⬜ |
-| Executions | `POST …/workflows/{id}/executions`, `GET …/executions/{id}` (+ steps, trace) | ⬜ |
+| Workflows | `POST/GET …/workflows`, `GET …/workflows/{id}`, `POST/GET …/workflows/{id}/versions`, `GET …/versions/{n}`, `POST/GET …/workflows/{id}/deployments` | ✅ |
+| Executions | `POST …/workflows/{id}/executions` (idempotency key), `GET …/executions` (filters), `GET …/executions/{id}` (+ steps), `POST …/executions/{id}/cancel`, `POST …/executions/{id}/resume` | ✅ |
 | Approvals | `GET …/approvals`, `POST …/approvals/{id}/decision` | ⬜ |
 | Tools | `GET/POST …/tools`, `PUT …/tools/{id}/policy` | ⬜ |
 | Knowledge | `…/knowledge-bases`, `…/documents` (upload → async ingestion) | ⬜ |
@@ -194,26 +194,67 @@ caller's membership **before** any handler code runs. It never comes from a requ
 rejected input. 500s never include exception text. Resources in other tenants return **404,
 identical to "does not exist"**.
 
-## 6. Workflow execution model ⬜ (Phase 2 design)
+## 6. Workflow execution model ✅ (Phase 2)
 
 A **WorkflowVersion** is an immutable, validated graph of typed steps:
 
 | Step type | Does | Can suspend? |
 |---|---|---|
-| `llm` | prompt template + structured output schema → validated JSON | no |
-| `retrieve` | query a knowledge base with metadata filters, returns chunks with IDs | no |
-| `tool` | propose a tool call → **policy engine** → execute / suspend / deny | yes (approval) |
-| `condition` | deterministic branch on state (JSONPath-style expressions, no `eval`) | no |
-| `approval` | explicit human checkpoint | yes |
-| `transform` | pure mapping of state → state | no |
-| `agent` | bounded tool-use loop (max iterations), each call still policy-checked | yes |
+| `transform` ✅ | set state variables or produce output from expressions | no |
+| `condition` ✅ | the first matching branch wins (`all`/`any`/`not`, 11 operators, no `eval`) | no |
+| `approval` ✅ | human checkpoint; `resume` with `{approved, comment, data}`; `on_reject` route | yes |
+| `fail` ✅ | terminate with a coded error | no |
+| `llm` ⬜ P3 | prompt template + structured output schema → validated JSON | no |
+| `retrieve` ⬜ P6 | query a knowledge base with metadata filters; returns chunks with IDs | no |
+| `tool` ⬜ P4/7 | propose a tool call → **policy engine** → execute / suspend / deny | yes (approval) |
+| `agent` ⬜ P5 | bounded tool-use loop (max iterations), each call still policy-checked | yes |
 
-**Execution state** (persisted in `executions`):
-`id, org_id, workflow_version_id, status, current_step, input, state (JSON), budgets
-{steps, tokens, cost, wall_time} used vs limit, error, created/started/finished_at`.
+**Definitions** (`workflows/definition.py`) are compiled when a version is created. The
+compiler rejects unknown step types, invalid configs, dangling `next`/`on_error`/branch
+targets, unreachable steps, malformed references, and references to unknown steps or
+undeclared inputs, and it reports every error at once.
 
-Statuses: `queued → running → (waiting_approval ⇄ running) → succeeded | failed | cancelled |
-budget_exceeded`.
+- Per step: `retry` (attempts, exponential backoff with a cap), `timeout_seconds`, and an
+  `on_error` fallback.
+- Per workflow: `limits.max_steps` (≤ 1000, retries count) and `limits.max_active_seconds`
+  (time spent running steps; time waiting for a human doesn't count).
+
+**Expressions** (`workflows/expressions.py`):
+
+- References: `$.input.x`, `$.state.x`, `$.steps.<id>.x[0]`.
+- Templates: `"Hi {{ $.input.name }}"`.
+- Evaluation is strict: missing paths and type-mismatched comparisons are errors, not `False`.
+- There are no function calls, attribute access or regex, so a definition can't execute code
+  or trigger ReDoS.
+
+**Deployments.**
+
+- Creating a version never changes production.
+- `POST …/deployments {version}` (needs `workflow:deploy`) appends to an immutable history.
+  Production is the newest deployment. Rollback means deploying an older version.
+- Running a version that isn't deployed requires `workflow:write`: developers test drafts,
+  operators run production.
+- Phase 11's quality gate hooks into `deploy`.
+
+**Execution state** (persisted in `executions`): `status, current_step, current_attempt,
+input, state, step_outputs, output, error, waiting_on, steps_used, active_ms, event_seq,
+cancel_requested, run_after, lease_owner, lease_expires_at, started/finished_at`.
+
+```mermaid
+stateDiagram-v2
+  [*] --> queued: POST executions
+  queued --> running: worker claims (lease)
+  running --> running: step ok / on_error route / reclaimed after lease expiry
+  running --> queued: retryable failure (run_after = now + backoff)
+  running --> waiting: step suspends (approval)
+  waiting --> queued: POST resume
+  running --> succeeded
+  running --> failed
+  running --> budget_exceeded: max_steps / max_active_seconds
+  queued --> cancelled: POST cancel
+  waiting --> cancelled: POST cancel
+  running --> cancelled: cancel_requested (checked before next step)
+```
 
 **Durability.** Each step attempt writes one `execution_steps` row (input snapshot, output,
 error, tokens, cost, latency, trace/span IDs). It commits **in the same transaction** as the
@@ -222,9 +263,17 @@ another worker resumes from `current_step`. Side-effecting tools receive a deter
 **idempotency key** (`execution_id:step_id`), so a retried step can't double-send an email or
 double-create a ticket.
 
-**Dispatch.** PostgreSQL is the source of truth. Workers claim runnable executions with
-`SELECT … FOR UPDATE SKIP LOCKED` plus a lease timeout. Redis is used only for low-latency
-wake-ups, so losing Redis delays work but never loses it. See ADR-0003.
+**Dispatch.** PostgreSQL is the source of truth. See ADR-0003.
+
+- **Claiming.** Workers claim runnable executions with `SELECT … FOR UPDATE SKIP LOCKED` plus
+  a compare-and-set. The worker holds a lease sized to the current step's timeout plus a margin.
+- **Fenced writes.** Every write checks `WHERE lease_owner = me AND status = 'running'`. A
+  worker that stalls past its lease (GC pause, network partition) can't overwrite the progress
+  of the worker that took over; its checkpoint is discarded.
+- **Poison-pill guard.** The attempt counter is incremented *before* a step runs. A step that
+  crashes its worker every time therefore uses up its attempts instead of crash-looping the fleet.
+- **Handler isolation.** Handlers get a deep copy of the scope and never a DB session.
+- **Redis** (later) is only an optimisation for wake-up latency.
 
 **Guards, checked before every step:** max steps, max wall time, token budget, cost budget
 (per execution and per org per day/month). If a guard trips, the execution terminates with

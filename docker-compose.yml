@@ -45,5 +45,18 @@ services:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
+  worker:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    command: ["python", "-m", "solutionforge.worker"]
+    env_file: [.env]
+    environment:
+      SF_DATABASE_URL: postgresql+asyncpg://solutionforge:${POSTGRES_PASSWORD:-solutionforge}@postgres:5432/solutionforge
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    deploy:
+      replicas: 2   # safe: leases + fenced writes; demonstrates horizontal scaling
+    healthcheck:
+      disable: true   # the image HEALTHCHECK probes the API port, which workers don't serve
+
 volumes:
   pgdata:

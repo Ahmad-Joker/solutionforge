@@ -1,6 +1,6 @@
 API := apps/api
 
-.PHONY: install lint typecheck test test-pg up down migrate run
+.PHONY: install lint typecheck test test-pg up down migrate run worker
 
 install:        ## install backend with dev deps
 	cd $(API) && pip install -e ".[dev]"
@@ -18,5 +18,7 @@ down:
 	docker compose down
 migrate:
 	cd $(API) && alembic upgrade head
+worker:
+	cd $(API) && python -m solutionforge.worker
 run:
 	cd $(API) && uvicorn solutionforge.main:app_factory --factory --reload

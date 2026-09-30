@@ -38,6 +38,17 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | DELETE | `/orgs/{org_id}/invitations/{id}` | `member:manage` | |
 | POST | `/invitations/accept` | authenticated, email must match | |
 | GET | `/orgs/{org_id}/audit-events` | `audit:read` | `limit` ≤ 200, `before` cursor, `event_type` filter |
+| POST | `/orgs/{org_id}/workflows` | `workflow:write` | |
+| GET | `/orgs/{org_id}/workflows[/{id}]` | `workflow:read` | includes `latest_version`, `deployed_version` |
+| POST | `/orgs/{org_id}/workflows/{id}/versions` | `workflow:write` | body `{definition, changelog}`; 422 `invalid_workflow_definition` lists every error |
+| GET | `/orgs/{org_id}/workflows/{id}/versions[/{n}]` | `workflow:read` | versions are immutable (no PUT/PATCH/DELETE) |
+| POST | `/orgs/{org_id}/workflows/{id}/deployments` | `workflow:deploy` | `{version, reason}`; deploying an older version = rollback |
+| GET | `/orgs/{org_id}/workflows/{id}/deployments` | `workflow:read` | newest first |
+| POST | `/orgs/{org_id}/workflows/{id}/executions` | `workflow:execute` (+`workflow:write` for non-deployed `version`) | 202 queued; with `idempotency_key`, a repeat returns 200 with the original |
+| GET | `/orgs/{org_id}/executions` | `workflow:read` | filters: `workflow_id`, `status`, `before`, `limit` |
+| GET | `/orgs/{org_id}/executions/{id}` | `workflow:read` | includes the ordered step trail |
+| POST | `/orgs/{org_id}/executions/{id}/cancel` | `workflow:execute` | running executions stop before their next step |
+| POST | `/orgs/{org_id}/executions/{id}/resume` | `approval:decide` | `{payload: {approved, comment?, data?}}` for approval steps |
 | GET | `/healthz`, `/readyz` | public | liveness / readiness (DB) |
 
 ## Walkthrough

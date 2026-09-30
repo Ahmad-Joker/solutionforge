@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     refresh_token_ttl_seconds: int = Field(default=14 * 24 * 3600, ge=3600)
     invitation_ttl_seconds: int = Field(default=7 * 24 * 3600, ge=3600)
 
+    worker_concurrency: int = Field(default=4, ge=1, le=64)
+    worker_poll_interval_seconds: float = Field(default=1.0, gt=0, le=60)
+    max_execution_input_bytes: int = Field(default=256 * 1024, ge=1024)
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     @model_validator(mode="after")

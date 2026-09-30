@@ -36,6 +36,13 @@ class AuditEventType(StrEnum):
     INVITATION_ACCEPTED = "invitation.accepted"
     INVITATION_REVOKED = "invitation.revoked"
 
+    WORKFLOW_CREATED = "workflow.created"
+    WORKFLOW_VERSION_CREATED = "workflow.version_created"
+    WORKFLOW_DEPLOYED = "workflow.deployed"
+    EXECUTION_CREATED = "execution.created"
+    EXECUTION_CANCELLED = "execution.cancelled"
+    EXECUTION_RESUMED = "execution.resumed"
+
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_events"

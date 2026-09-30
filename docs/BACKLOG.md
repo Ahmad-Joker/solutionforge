@@ -32,13 +32,24 @@ Acceptance criteria:
 - [x] Tests: unit + integration + security (tenant isolation, RBAC matrix, token attacks, races).
 - [ ] Suite executed against PostgreSQL. **Configured in CI, not yet run** (no Docker/Postgres on the dev machine).
 
-## Phase 2 — Workflow execution engine
-Workflow / WorkflowVersion (immutable once published) / Execution / ExecutionStep tables.
-Typed step registry (`transform`, `condition`, `approval`, stub `llm`/`tool`). Runner with
-checkpoint-per-step, PG `SKIP LOCKED` leasing, retries with backoff, per-step timeouts, step and
-time budgets. **Accept when:** a multi-step workflow with a branch runs to completion; killing
-the worker mid-run and restarting resumes from the last checkpoint (tested); an infinite loop
-definition terminates with `budget_exceeded`.
+## Phase 2 — Workflow execution engine ✅
+
+- [x] Workflow / immutable WorkflowVersion / append-only WorkflowDeployment / Execution / ExecutionStep (migration 0002)
+- [x] Definitions compiled when a version is created: graph integrity, reachability, configs, references
+- [x] Safe expression language (references, templates, predicates; no eval, no regex)
+- [x] Step registry with `transform`, `condition`, `approval`, `fail`; extensible for llm/tool/retrieve
+- [x] Explicit deployments; rollback = deploy an older version; unreleased versions need `workflow:write`
+- [x] Worker with bounded concurrency, jittered polling and graceful drain (`python -m solutionforge.worker`)
+- [x] Leases and fenced checkpoints: a crash mid-step resumes on another worker, and completed steps don't re-run (tested)
+- [x] Poison-pill guard: repeated worker crashes use up the step's attempts (tested)
+- [x] Retries with exponential backoff (scheduled via `run_after`, no busy-waiting); per-step timeouts; `on_error` fallback
+- [x] Budgets: `max_steps` (an infinite loop ends as `budget_exceeded`, tested) and `max_active_seconds`
+- [x] Suspend/resume (approval); cancel (queued/waiting stop immediately, running stops before the next step)
+- [x] Idempotent execution creation (per tenant, race-safe)
+- [x] Output and state size caps; handler exceptions contained and not leaked; handler scope isolation
+- [x] Tenant isolation and RBAC matrix tests extended to every workflow/execution route
+- [x] Live run with separate API and worker processes
+- [ ] Suite run on PostgreSQL (CI only; no local Docker/Postgres)
 
 ## Phase 3 — LLM provider abstraction
 `LLMProvider` protocol; Anthropic + OpenAI-compatible + deterministic `MockProvider`.
@@ -102,5 +113,10 @@ queue depth), Grafana dashboards as code.
 - Add an import-linter contract to enforce `api → services → domain/db/security`.
 - Email verification for registration (closes the enumeration gap and proves email ownership
   for invitations).
+- The "current deployment" lookup and audit ordering rely on `created_at`. Add a monotonic
+  sequence so ordering stays strict when two writes land in the same microsecond.
+- The expression language has no arithmetic. Add a small safe set (`add`, `len`, …) when a
+  real workflow needs counters.
+- Worker wake-up latency equals the poll interval. Add Redis or `LISTEN/NOTIFY` wake-ups.
 - Refresh-token reuse detection also fires on a benign client retry after a lost response.
   Consider a short grace window.

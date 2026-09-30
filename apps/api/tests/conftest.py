@@ -24,7 +24,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from solutionforge.core.config import Environment, Settings
 from solutionforge.db.base import Base
 from solutionforge.main import create_app
+from solutionforge.workflows.engine import Engine
+from solutionforge.workflows.steps import default_registry
 from tests.helpers import Api
+from tests.workflow_support import (
+    BigOutputStep,
+    BoomStep,
+    CountStep,
+    CrashStep,
+    FlakyStep,
+    InstrumentedSteps,
+    MutateScopeStep,
+    SleepStep,
+    StealStep,
+)
 
 API_ROOT = Path(__file__).resolve().parents[1]
 
@@ -91,3 +104,28 @@ async def _truncate_all(app: FastAPI) -> None:
         else:
             for name in tables:
                 await conn.execute(sa.text(f"DELETE FROM {name}"))  # noqa: S608 (static names)
+
+
+@pytest.fixture
+def test_steps(app: FastAPI) -> InstrumentedSteps:
+    """Registers fault-injection step types on the app's registry (API + engine share it)."""
+    registry = default_registry()
+    steps = InstrumentedSteps(CountStep(), FlakyStep(), CrashStep())
+    for handler in (
+        steps.count,
+        steps.flaky,
+        steps.crash,
+        SleepStep(),
+        BoomStep(),
+        BigOutputStep(),
+        StealStep(app.state.sessionmaker),
+        MutateScopeStep(),
+    ):
+        registry.register(handler)
+    app.state.step_registry = registry
+    return steps
+
+
+@pytest.fixture
+def engine(app: FastAPI, test_steps: InstrumentedSteps) -> Engine:
+    return Engine(app.state.sessionmaker, app.state.step_registry, worker_id="worker-1")
