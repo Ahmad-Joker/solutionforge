@@ -335,6 +335,7 @@ class Engine:
                 llm_token_limit=limits.max_llm_tokens,
                 visit=ex.visit_seq,
                 initiator_role=await _initiator_role(s, ex),
+                initiator_user_id=ex.created_by_user_id,
             )
             return compiled, step, ctx, snap
 

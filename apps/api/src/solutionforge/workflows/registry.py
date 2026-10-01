@@ -45,12 +45,22 @@ class StepError(Exception):
         self.exhausts_budget = exhausts_budget
 
 
-class _UseDefault:
+class UseDefault:
     def __repr__(self) -> str:
         return "USE_DEFAULT"
 
 
-USE_DEFAULT: Final = _UseDefault()
+USE_DEFAULT: Final = UseDefault()
+
+
+class Rerun:
+    def __repr__(self) -> str:
+        return "RERUN"
+
+
+# Returned by ``resume`` to run the *same* step visit again (e.g. after an approval): same
+# idempotency key, fresh attempt budget.
+RERUN: Final = Rerun()
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +76,7 @@ class StepResult:
     output: dict[str, Any] = field(default_factory=dict)
     set_state: dict[str, Any] = field(default_factory=dict)
     # Branching steps override the static ``next``. ``None`` ends the workflow.
-    goto: str | _UseDefault | None = USE_DEFAULT
+    goto: str | UseDefault | Rerun | None = USE_DEFAULT
     suspend: Suspend | None = None
 
 
@@ -85,6 +95,7 @@ class StepContext:
     # Current role of the execution's creator, resolved when the step starts (None = no
     # longer a member). Tool policy uses it; it is never taken from execution input.
     initiator_role: str | None = None
+    initiator_user_id: uuid.UUID | None = None
 
     @property
     def idempotency_key(self) -> str:

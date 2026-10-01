@@ -147,6 +147,14 @@ class ToolApprovalRequired(ToolError):
     code = "tool_approval_required"
 
 
+class ToolApprovalRejected(ToolError):
+    code = "tool_approval_rejected"
+
+
+class ToolApprovalExpired(ToolError):
+    code = "tool_approval_expired"
+
+
 class ToolConfigError(ToolError):
     """Missing/invalid installation config or credentials."""
 

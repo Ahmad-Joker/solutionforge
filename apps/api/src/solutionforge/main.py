@@ -12,7 +12,7 @@ from solutionforge import __version__
 from solutionforge.api import health
 from solutionforge.api.errors import install_error_handlers
 from solutionforge.api.middleware import RequestContextMiddleware
-from solutionforge.api.v1 import audit, auth, knowledge, orgs, tools, usage, workflows
+from solutionforge.api.v1 import approvals, audit, auth, knowledge, orgs, tools, usage, workflows
 from solutionforge.core.config import Settings, get_settings
 from solutionforge.core.logging import configure_logging, get_logger
 from solutionforge.db.session import build_engine, build_sessionmaker
@@ -79,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     v1.include_router(usage.router)
     v1.include_router(tools.router)
     v1.include_router(knowledge.router)
+    v1.include_router(approvals.router)
     app.include_router(v1)
     app.include_router(health.router)
     return app

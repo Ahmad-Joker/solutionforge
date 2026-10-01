@@ -459,7 +459,7 @@ async def test_support_flow_lookup_ticket_and_draft(
     assert len(activity["tickets"]) == 1 and activity["messages"][0]["status"] == "draft"
 
 
-async def test_sending_email_from_workflow_is_blocked_until_approval_exists(
+async def test_sending_email_from_workflow_waits_for_human_approval(
     api: Api, client: AsyncClient, engine: Engine
 ) -> None:
     definition = _wf(
@@ -487,8 +487,9 @@ async def test_sending_email_from_workflow_is_blocked_until_approval_exists(
     eid = await start(api, s)
     await engine.run_until_idle()
     ex = await get_exec(api, s, eid)
-    assert ex["status"] == "failed" and ex["error"]["code"] == "tool_approval_required"
-    assert ex["error"]["retryable"] is False
+    # Phase 8: external actions suspend for a human instead of failing.
+    assert ex["status"] == "waiting" and ex["waiting_on"]["reason"] == "tool_approval"
+    assert ex["waiting_on"]["tool"] == "email.send_message"
 
 
 async def test_crash_after_side_effect_does_not_duplicate_on_recovery(

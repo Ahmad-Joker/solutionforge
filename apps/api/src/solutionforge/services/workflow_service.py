@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from solutionforge.core.clock import utcnow
 from solutionforge.core.errors import Conflict, NotFound, ValidationFailed
 from solutionforge.db.tenancy import TenantContext, scoped_select
+from solutionforge.domain.approvals import Approval, ApprovalStatus
 from solutionforge.domain.audit import AuditEventType
 from solutionforge.domain.workflow import (
     Execution,
@@ -428,6 +429,16 @@ async def cancel_execution(
             await session.rollback()
             ex, _ = await get_execution(session, ctx, execution_id)  # 404 if foreign/missing
             raise Conflict(f"Execution is already {ex.status.value}")
+    await session.execute(
+        sa.update(Approval)
+        .where(
+            Approval.execution_id == execution_id,
+            Approval.organization_id == ctx.organization_id,
+            Approval.status == ApprovalStatus.PENDING,
+        )
+        .values(status=ApprovalStatus.CANCELLED, decided_at=now, decided_by_user_id=ctx.user_id)
+        .execution_options(synchronize_session=False)
+    )
     audit_service.record(
         session,
         event_type=AuditEventType.EXECUTION_CANCELLED,
@@ -452,13 +463,37 @@ async def resume_execution(
     payload: dict[str, Any],
     request: RequestMeta,
 ) -> Execution:
-    """Deliver the signal a WAITING execution is suspended on (e.g. an approval decision)."""
+    """Deliver the signal a WAITING execution is suspended on (``approval`` checkpoints).
+
+    Tool approvals must go through ``POST /approvals/{id}/decision``, which enforces the
+    approver permission and four-eyes rule; this endpoint refuses them so it can't be used
+    to bypass those checks.
+    """
     ensure(ctx, Permission.APPROVAL_DECIDE)
     ex = await session.scalar(
         scoped_select(Execution, ctx, Execution.id == execution_id).with_for_update()
     )
     if ex is None:
         raise NotFound("Execution not found")
+    if ex.status != ExecutionStatus.WAITING:
+        raise Conflict(f"Execution is {ex.status.value}, not waiting")
+    if (ex.waiting_on or {}).get("reason") == "tool_approval":
+        raise Conflict("This execution awaits a tool approval; decide it via the approvals API")
+    return await resume_locked(
+        session, registry, ex, payload=payload, actor_user_id=ctx.user_id, request=request
+    )
+
+
+async def resume_locked(
+    session: AsyncSession,
+    registry: StepRegistry,
+    ex: Execution,
+    *,
+    payload: dict[str, Any],
+    actor_user_id: uuid.UUID | None,
+    request: RequestMeta,
+) -> Execution:
+    """Resume a WAITING execution already loaded ``FOR UPDATE`` by an authorized caller."""
     if ex.status != ExecutionStatus.WAITING:
         raise Conflict(f"Execution is {ex.status.value}, not waiting")
 
@@ -540,8 +575,8 @@ async def resume_execution(
         session,
         event_type=AuditEventType.EXECUTION_RESUMED,
         request=request,
-        actor_user_id=ctx.user_id,
-        organization_id=ctx.organization_id,
+        actor_user_id=actor_user_id,
+        organization_id=ex.organization_id,
         resource_type="execution",
         resource_id=ex.id,
         execution_id=ex.id,

@@ -55,7 +55,7 @@ flowchart LR
     RBAC[RBAC matrix ✅]
     WF[Workflow definitions, versions, deployments ✅]
     POL[Policy gate: risk × tenant installation ✅ / role-aware ⬜ P7]
-    APR[Approvals ⬜]
+    APR[Approvals: durable requests, four-eyes, expiry ✅]
     EVAL[Evaluation + deploy gates ⬜]
     KB[Knowledge bases + durable ingestion jobs ✅]
   end
@@ -124,7 +124,7 @@ erDiagram
 | Workflow, WorkflowVersion, WorkflowDeployment, Execution, ExecutionStep | ✅ | migration `0002`. Versions are immutable. Deployments are append-only (rollback = new row). A PG trigger rejects UPDATE on execution_steps |
 | ToolInstallation, ToolCall | ✅ | migration `0004`. Per-tenant opt-in with encrypted credentials. The call trail is unique on `(org, tool, idempotency_key)` |
 | Sim* (customers, orders, tickets, messages, refunds) | ✅ | stand-ins for customer systems: real tenant-scoped tables behind the tool interface |
-| Approval | ⬜ Phase 8 | |
+| Approval | ✅ | migration `0007`. One per (execution, step, visit). Proposed and approved (possibly modified) args, required approver permission, expiry, consumption |
 | KnowledgeBase, Document, Chunk | ✅ | migration `0005`. `vector(1024)` + HNSW (cosine) and a GIN full-text index on PG. Documents carry their ingestion job state (lease, attempts, dead letter) |
 | EvaluationDataset/Case/Run, DeploymentDecision | ⬜ Phase 11 | |
 | UsageRecord, OrgBudget | ✅ | migration `0003`. One row per provider attempt (success or failure), integer micro-USD, with no prompt or output content |
@@ -184,7 +184,7 @@ caller's membership **before** any handler code runs. It never comes from a requ
 | Audit | `GET /orgs/{org_id}/audit-events` (cursor pagination, type filter) | ✅ |
 | Workflows | `POST/GET …/workflows`, `GET …/workflows/{id}`, `POST/GET …/workflows/{id}/versions`, `GET …/versions/{n}`, `POST/GET …/workflows/{id}/deployments` | ✅ |
 | Executions | `POST …/workflows/{id}/executions` (idempotency key), `GET …/executions` (filters), `GET …/executions/{id}` (+ steps), `POST …/executions/{id}/cancel`, `POST …/executions/{id}/resume` | ✅ |
-| Approvals | `GET …/approvals`, `POST …/approvals/{id}/decision` | ⬜ |
+| Approvals | `GET …/approvals` (status / execution filters), `GET …/approvals/{id}`, `POST …/approvals/{id}/decision` (`approve`/`reject`, optional modified args) | ✅ |
 | Tools | `GET …/tools` (with MCP descriptors), `PUT …/tools/{name}` (enable, policy, config, write-only credentials), `GET …/tool-calls`, `POST …/demo-data`, `GET …/simulated/activity` | ✅ |
 | Knowledge | `POST/GET …/knowledge-bases`, `GET/DELETE …/knowledge-bases/{id}`, `POST/GET …/knowledge-bases/{id}/documents` (202, async ingestion, idempotent by content hash), `GET/DELETE …/documents/{id}`, `POST …/documents/{id}/retry`, `POST …/knowledge-bases/{id}/search` | ✅ |
 | Evaluation | `…/eval-datasets`, `…/eval-runs`, `…/deployments` (gate decisions) | ⬜ |
@@ -426,7 +426,43 @@ See [docs/RETRIEVAL.md](docs/RETRIEVAL.md) for the pipeline, the citation rules,
   CI runs the suite on PostgreSQL. PostgreSQL-only indexes use the `pgx_` prefix and are
   excluded from the drift check.
 
-## 11. Cross-cutting decisions
+## 11. Human approvals ✅ (Phase 8)
+
+```mermaid
+sequenceDiagram
+  participant W as Worker (tool step)
+  participant X as ToolExecutor
+  participant DB as approvals table
+  participant H as Approver (API)
+  W->>X: invoke(approval=visit, initiator, ttl)
+  X->>X: policy → REQUIRE_APPROVAL
+  X->>DB: create pending request (commit first)
+  X-->>W: ToolApprovalRequired(approval_id)
+  W->>W: suspend: waiting_on = {tool_approval, approval_id}
+  H->>DB: decide (permission, four-eyes, re-validated modified args, audit)
+  H->>W: resume → RERUN same step visit (same idempotency key)
+  W->>X: invoke again → policy re-evaluated → approval consumed → execute once
+```
+
+- **Durable.** The request and the waiting execution are rows, so restarts, closed
+  browsers and worker crashes don't lose them. A decision resumes the execution in the same
+  transaction it's recorded in.
+- **Decision rules live in code** (`services/approval_service.py`):
+  - the decider needs the permission the policy assigned;
+  - high-risk actions can't be approved by their own requester (four-eyes);
+  - modified args are schema-validated;
+  - decisions are final;
+  - expired requests can't be decided;
+  - cancelling an execution cancels its pending requests;
+  - the generic `/executions/{id}/resume` refuses tool approvals, so it can't bypass these
+    checks.
+- **Policy is evaluated again** when the step re-runs. A tool blocked *after* approval stays
+  blocked.
+- **Agents** don't create approval requests mid-loop. An agent proposes; an explicit `tool`
+  step after it requests the approval. This keeps suspend/resume at step boundaries, where
+  state is fully checkpointed.
+
+## 12. Cross-cutting decisions
 
 - **Time:** all timestamps are timezone-aware UTC. A `UTCDateTime` column type rejects naive values.
 - **IDs:** UUIDv4 everywhere. Nothing sequential is exposed.

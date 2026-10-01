@@ -128,7 +128,17 @@ Original plan:
 PolicyEngine (risk × tenant policy × role) → ALLOW / REQUIRE_APPROVAL / DENY. Redis login rate
 limiting. Postgres RLS as defense in depth.
 
-## Phase 8 — Human approvals
+## Phase 8 — Human approvals ✅
+
+- [x] Durable approval requests (proposed args, reason, risk, permission, expiry) per step visit
+- [x] Approve / reject / approve-with-modified-args (re-validated); `on_reject` routing
+- [x] Approver permission from policy; four-eyes for high risk; final decisions; audit trail linking actions to approvals
+- [x] Resume re-runs the same step visit (`RERUN`, same idempotency key); policy re-checked; exactly-once execution
+- [x] Expiry sweeper in the worker; cancellation cascades; the resume endpoint can't bypass
+- [ ] Notifications (email/Slack) for new approval requests
+- [ ] Approvals from inside agent loops (by design, agents propose and tool steps request)
+
+Original plan:
 Approval requests with proposed action, parameters, reason, risk, and source execution.
 Approve / Reject / Modify (the modified arguments are re-validated and re-policy-checked).
 Resume across restarts.

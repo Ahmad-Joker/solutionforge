@@ -69,6 +69,9 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | POST | `/orgs/{org_id}/knowledge-bases/{id}/search` | `knowledge:read` | `{query, top_k, strategy: dense\|keyword\|hybrid, filters, min_dense_score}` |
 | GET | `/orgs/{org_id}/tool-policy` | `tool:read` | |
 | PUT | `/orgs/{org_id}/tool-policy` | `org:manage` | `{auto_allow_up_to, blocked_tools, blocked_risk_levels}`; audited |
+| GET | `/orgs/{org_id}/approvals` | `approval:read` | `status`, `execution_id`, `before`, `limit` |
+| GET | `/orgs/{org_id}/approvals/{id}` | `approval:read` | |
+| POST | `/orgs/{org_id}/approvals/{id}/decision` | `approval:decide` + the request's `required_permission`; four-eyes for high risk | `{decision: approve\|reject, args?, comment?}` |
 | GET | `/healthz`, `/readyz` | public | liveness / readiness (DB) |
 
 ## Walkthrough

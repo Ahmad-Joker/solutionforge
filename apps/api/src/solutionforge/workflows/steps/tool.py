@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
 
 from solutionforge.security.rbac import Role
 from solutionforge.tools.catalog import ToolCatalog
-from solutionforge.tools.executor import ToolExecutor
-from solutionforge.tools.spec import ToolError
+from solutionforge.tools.executor import ApprovalRequest, ToolExecutor
+from solutionforge.tools.spec import ToolApprovalRequired, ToolError
 from solutionforge.workflows import expressions
-from solutionforge.workflows.registry import StepContext, StepError, StepHandler, StepResult
+from solutionforge.workflows.registry import (
+    RERUN,
+    StepContext,
+    StepError,
+    StepHandler,
+    StepResult,
+    Suspend,
+)
 
 
 class ToolStepConfig(BaseModel):
@@ -19,6 +26,8 @@ class ToolStepConfig(BaseModel):
 
     tool: str = Field(min_length=3, max_length=96)
     args: dict[str, Any] = Field(default_factory=dict)
+    approval_ttl_hours: float = Field(default=72, gt=0, le=720)
+    on_reject: str | None = Field(default=None, description="Step to run if approval is denied")
 
     @model_validator(mode="after")
     def _check_against_catalog(self, info: ValidationInfo) -> ToolStepConfig:
@@ -50,6 +59,9 @@ class ToolStep(StepHandler[ToolStepConfig]):
     def parse_config(self, raw: dict[str, Any]) -> ToolStepConfig:
         return ToolStepConfig.model_validate(raw, context={"tool_catalog": self.executor.catalog})
 
+    def targets(self, config: ToolStepConfig) -> list[str | None]:
+        return [config.on_reject]
+
     def references(self, config: ToolStepConfig) -> list[str]:
         return expressions.references(config.args)
 
@@ -67,6 +79,21 @@ class ToolStep(StepHandler[ToolStepConfig]):
                 execution_id=ctx.execution_id,
                 step_id=ctx.step_id,
                 actor_role=Role(ctx.initiator_role) if ctx.initiator_role else None,
+                approval=ApprovalRequest(
+                    visit=ctx.visit,
+                    requested_by_user_id=ctx.initiator_user_id,
+                    ttl_seconds=int(config.approval_ttl_hours * 3600),
+                ),
+            )
+        except ToolApprovalRequired as exc:
+            if "approval_id" not in exc.details:
+                raise StepError(exc.message, code=exc.code, details=exc.details) from exc
+            # Durable pause: the approval request is committed; the decision API resumes us.
+            return StepResult(
+                suspend=Suspend(
+                    reason="tool_approval",
+                    details={"tool": config.tool, **exc.details},
+                )
             )
         except ToolError as exc:
             raise StepError(
@@ -79,3 +106,29 @@ class ToolStep(StepHandler[ToolStepConfig]):
                 "tool_call_id": str(inv.tool_call_id),
             }
         )
+
+    async def resume(
+        self, config: ToolStepConfig, ctx: StepContext, payload: dict[str, Any]
+    ) -> StepResult:
+        decision = ApprovalSignal.model_validate(payload)
+        if decision.decision == "approved":
+            return StepResult(output={"approval_id": decision.approval_id}, goto=RERUN)
+        output = {
+            "approved": False,
+            "decision": decision.decision,
+            "approval_id": decision.approval_id,
+        }
+        if config.on_reject is not None:
+            return StepResult(output=output, goto=config.on_reject)
+        raise StepError(
+            f"{config.tool} was not approved ({decision.decision})",
+            code=f"tool_approval_{decision.decision}",
+            details=output,
+        )
+
+
+class ApprovalSignal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    approval_id: str
+    decision: Literal["approved", "rejected", "expired", "cancelled"]

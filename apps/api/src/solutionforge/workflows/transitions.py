@@ -15,7 +15,13 @@ from typing import Any
 from solutionforge.domain.workflow import Execution, ExecutionStatus, StepStatus
 from solutionforge.workflows import expressions
 from solutionforge.workflows.definition import CompiledStep, CompiledWorkflow
-from solutionforge.workflows.registry import USE_DEFAULT, StepError, StepResult
+from solutionforge.workflows.registry import (
+    RERUN,
+    Rerun,
+    StepError,
+    StepResult,
+    UseDefault,
+)
 
 MAX_STEP_OUTPUT_BYTES = 256 * 1024
 MAX_STATE_BYTES = 1024 * 1024
@@ -120,8 +126,21 @@ def on_success(
             continue_status=continue_status,
             final=True,
         )
+    if result.goto is RERUN:
+        return Transition(
+            values={
+                "status": continue_status,
+                "current_attempt": 0,
+                "run_after": now,
+                "waiting_on": None,
+                "updated_at": now,
+            },
+            step_status=step_status,
+            step_output=result.output,
+        )
     outputs = {**snap.step_outputs, step_id: result.output}
-    nxt = step.spec.next if result.goto is USE_DEFAULT else result.goto
+    goto = result.goto
+    nxt = step.spec.next if isinstance(goto, (UseDefault, Rerun)) else goto
     base = {"state": state, "step_outputs": outputs, "waiting_on": None, "updated_at": now}
 
     if nxt is None:

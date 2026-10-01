@@ -58,6 +58,12 @@ class AuditEventType(StrEnum):
 
     POLICY_UPDATED = "org.policy_updated"
 
+    APPROVAL_REQUESTED = "approval.requested"
+    APPROVAL_APPROVED = "approval.approved"
+    APPROVAL_REJECTED = "approval.rejected"
+    APPROVAL_EXPIRED = "approval.expired"
+    APPROVAL_CANCELLED = "approval.cancelled"
+
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_events"

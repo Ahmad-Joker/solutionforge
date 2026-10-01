@@ -21,6 +21,7 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 
 import sqlalchemy as sa
@@ -30,17 +31,20 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from solutionforge.core.clock import utcnow
 from solutionforge.core.logging import get_logger
+from solutionforge.domain.approvals import Approval, ApprovalStatus
 from solutionforge.domain.audit import AuditEventType
 from solutionforge.domain.policy import OrgPolicy
 from solutionforge.domain.tools import ToolCall, ToolCallStatus, ToolInstallation
 from solutionforge.security.crypto import CredentialCipher, CredentialError
-from solutionforge.security.rbac import Role
+from solutionforge.security.rbac import Permission, Role
 from solutionforge.services import audit_service
 from solutionforge.services.audit_service import RequestMeta, sanitize_metadata
 from solutionforge.tools import policy
 from solutionforge.tools.catalog import ToolCatalog
 from solutionforge.tools.spec import (
     Tool,
+    ToolApprovalExpired,
+    ToolApprovalRejected,
     ToolApprovalRequired,
     ToolConfigError,
     ToolContext,
@@ -57,6 +61,16 @@ from solutionforge.tools.spec import (
 
 log = get_logger(__name__)
 _SYSTEM = RequestMeta(ip_address=None, request_id=None)
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalRequest:
+    """Passed by workflow tool steps: lets the executor turn REQUIRE_APPROVAL into a durable
+    approval request for this step visit instead of a refusal."""
+
+    visit: int
+    requested_by_user_id: uuid.UUID | None
+    ttl_seconds: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +107,7 @@ class ToolExecutor:
         execution_id: uuid.UUID | None = None,
         step_id: str | None = None,
         actor_role: Role | None = None,
+        approval: ApprovalRequest | None = None,
     ) -> ToolInvocation:
         """``actor_role``: the *current* role of whoever initiated the call (for workflows,
         the execution's creator). ``None`` means no valid principal and is always denied."""
@@ -118,7 +133,23 @@ class ToolExecutor:
             actor_role=actor_role,
             org_policy=await self._org_policy(organization_id),
         )
-        if decision.decision != policy.Decision.ALLOW:
+        approval_id: uuid.UUID | None = None
+        if (
+            decision.decision == policy.Decision.REQUIRE_APPROVAL
+            and approval is not None
+            and execution_id is not None
+            and step_id is not None
+        ):
+            approved_args, approval_id = await self._approval_gate(
+                organization_id, spec, decision, parsed, execution_id, step_id, approval
+            )
+            # Approvers may have modified the arguments: validate again, as if new.
+            try:
+                parsed = spec.input_model.model_validate(approved_args)
+            except ValidationError:
+                raise ToolInputInvalid(f"approved arguments for {tool_name} are invalid") from None
+            safe_args = sanitize_metadata(parsed.model_dump(mode="json"))
+        elif decision.decision != policy.Decision.ALLOW:
             await self._record_refusal(
                 organization_id,
                 spec.name,
@@ -193,6 +224,7 @@ class ToolExecutor:
             latency_ms,
             execution_id,
             safe_args,
+            approval_id,
         )
         log.info(
             "tool_call",
@@ -238,6 +270,92 @@ class ToolExecutor:
                     ToolInstallation.organization_id == org, ToolInstallation.tool_name == name
                 )
             )
+
+    async def _approval_gate(
+        self,
+        org: uuid.UUID,
+        spec: Any,
+        decision: policy.PolicyResult,
+        parsed: ToolModel,
+        execution_id: uuid.UUID,
+        step_id: str,
+        request: ApprovalRequest,
+    ) -> tuple[dict[str, Any], uuid.UUID]:
+        """Return (args to run with, approval id) if approved; otherwise create or report the
+        request. State changes commit *before* raising, so a new request is never rolled back
+        by the very signal that announces it."""
+        now = utcnow()
+        outcome: ToolError | None = None
+        async with self.sessionmaker() as s, s.begin():
+            row = await s.scalar(
+                sa.select(Approval)
+                .where(
+                    Approval.execution_id == execution_id,
+                    Approval.step_id == step_id,
+                    Approval.visit == request.visit,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                row = Approval(
+                    organization_id=org,
+                    execution_id=execution_id,
+                    step_id=step_id,
+                    visit=request.visit,
+                    tool_name=spec.name,
+                    risk_level=spec.risk_level.value,
+                    reason=decision.reason,
+                    required_permission=(
+                        decision.approver_permission or Permission.APPROVAL_DECIDE
+                    ).value,
+                    proposed_args=parsed.model_dump(mode="json"),
+                    status=ApprovalStatus.PENDING,
+                    requested_by_user_id=request.requested_by_user_id,
+                    expires_at=now + timedelta(seconds=request.ttl_seconds),
+                )
+                s.add(row)
+                await s.flush()
+                audit_service.record(
+                    s,
+                    event_type=AuditEventType.APPROVAL_REQUESTED,
+                    request=_SYSTEM,
+                    organization_id=org,
+                    resource_type="approval",
+                    resource_id=row.id,
+                    execution_id=execution_id,
+                    metadata={
+                        "tool": spec.name,
+                        "risk_level": spec.risk_level.value,
+                        "args": sanitize_metadata(row.proposed_args),
+                    },
+                )
+            approval_id = row.id
+            if row.status == ApprovalStatus.PENDING:
+                outcome = ToolApprovalRequired(
+                    f"{spec.name} requires approval: {decision.reason}",
+                    approval_id=str(row.id),
+                    risk_level=spec.risk_level.value,
+                    approver_permission=row.required_permission,
+                )
+            elif row.status == ApprovalStatus.APPROVED:
+                if row.consumed_at is None:
+                    row.consumed_at = now
+                args = dict(
+                    row.approved_args if row.approved_args is not None else row.proposed_args
+                )
+            elif row.status == ApprovalStatus.REJECTED:
+                outcome = ToolApprovalRejected(
+                    f"{spec.name} was rejected by an approver", approval_id=str(row.id)
+                )
+            elif row.status == ApprovalStatus.EXPIRED:
+                outcome = ToolApprovalExpired(
+                    f"approval for {spec.name} expired", approval_id=str(row.id)
+                )
+            else:
+                outcome = ToolDenied(f"approval for {spec.name} was cancelled")
+        if outcome is not None:
+            raise outcome
+        return args, approval_id
 
     async def _org_policy(self, org: uuid.UUID) -> policy.ToolPolicyConfig:
         async with self.sessionmaker() as s:
@@ -322,6 +440,7 @@ class ToolExecutor:
         latency_ms: int,
         execution_id: uuid.UUID | None,
         safe_args: dict[str, Any],
+        approval_id: uuid.UUID | None = None,
     ) -> None:
         async with self.sessionmaker() as s, s.begin():
             await s.execute(
@@ -345,7 +464,12 @@ class ToolExecutor:
                     resource_type="tool_call",
                     resource_id=call_id,
                     execution_id=execution_id,
-                    metadata={"tool": name, "risk_level": risk, "args": safe_args},
+                    metadata={
+                        "tool": name,
+                        "risk_level": risk,
+                        "args": safe_args,
+                        "approval_id": str(approval_id) if approval_id else None,
+                    },
                 )
 
     async def _record_refusal(

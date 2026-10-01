@@ -1,5 +1,6 @@
 """ORM entities. Importing this package registers every table on ``Base.metadata``."""
 
+from solutionforge.domain.approvals import Approval, ApprovalStatus
 from solutionforge.domain.audit import AuditEvent, AuditEventType
 from solutionforge.domain.identity import Invitation, Membership, Organization, RefreshToken, User
 from solutionforge.domain.knowledge import Chunk, Document, DocumentStatus, KnowledgeBase
@@ -18,6 +19,8 @@ from solutionforge.domain.workflow import (
 )
 
 __all__ = [
+    "Approval",
+    "ApprovalStatus",
     "AuditEvent",
     "AuditEventType",
     "Chunk",
