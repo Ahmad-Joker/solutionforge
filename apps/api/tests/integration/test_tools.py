@@ -12,6 +12,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from solutionforge.domain import AuditEvent, SimMessage, SimTicket, ToolCall, ToolInstallation
+from solutionforge.security.rbac import Role
 from solutionforge.tools.executor import ToolExecutor
 from solutionforge.tools.spec import (
     ToolApprovalRequired,
@@ -90,10 +91,14 @@ async def test_read_tools_return_tenant_data_and_are_recorded(
     tool_harness: ToolExecutor, org: uuid.UUID, db: AsyncSession
 ) -> None:
     inv = await tool_harness.invoke(
-        organization_id=org, tool_name="crm.get_customer", args={"customer_ref": "C-1001"}
+        actor_role=Role.OPERATOR,
+        organization_id=org,
+        tool_name="crm.get_customer",
+        args={"customer_ref": "C-1001"},
     )
     assert inv.output["ref"] == "C-1001" and inv.output["tier"] in {"standard", "gold", "platinum"}
     delayed = await tool_harness.invoke(
+        actor_role=Role.OPERATOR,
         organization_id=org,
         tool_name="orders.find_delayed",
         args={"min_days_late": 3, "tiers": ["gold", "platinum"]},
@@ -112,7 +117,10 @@ async def test_read_tools_return_tenant_data_and_are_recorded(
 async def test_business_errors_are_not_retried(tool_harness: ToolExecutor, org: uuid.UUID) -> None:
     with pytest.raises(ToolBusinessError):
         await tool_harness.invoke(
-            organization_id=org, tool_name="crm.get_customer", args={"customer_ref": "C-9999"}
+            actor_role=Role.OPERATOR,
+            organization_id=org,
+            tool_name="crm.get_customer",
+            args={"customer_ref": "C-9999"},
         )
 
 
@@ -122,14 +130,18 @@ async def test_uninstalled_or_disabled_tools_refused(
     owner = await api.user()
     org = uuid.UUID(await api.org(owner))
     with pytest.raises(ToolNotEnabled):
-        await tool_harness.invoke(organization_id=org, tool_name="crm.search_customers", args={})
+        await tool_harness.invoke(
+            actor_role=Role.OPERATOR, organization_id=org, tool_name="crm.search_customers", args={}
+        )
     await client.put(
         f"/api/v1/orgs/{org}/tools/crm.search_customers",
         json={"enabled": False},
         headers=owner.headers,
     )
     with pytest.raises(ToolNotEnabled):
-        await tool_harness.invoke(organization_id=org, tool_name="crm.search_customers", args={})
+        await tool_harness.invoke(
+            actor_role=Role.OPERATOR, organization_id=org, tool_name="crm.search_customers", args={}
+        )
 
 
 async def test_invalid_args_rejected_before_execution(
@@ -137,6 +149,7 @@ async def test_invalid_args_rejected_before_execution(
 ) -> None:
     with pytest.raises(ToolInputInvalid) as ei:
         await tool_harness.invoke(
+            actor_role=Role.OPERATOR,
             organization_id=org,
             tool_name="ticketing.create_ticket",
             args={"subject": "x", "body": "y", "priority": "urgent", "assignee": "root"},
@@ -150,13 +163,17 @@ async def test_transient_errors_retried_only_when_safe(
 ) -> None:
     flaky_read = tool_harness.catalog.get("test.flaky_read")
     assert isinstance(flaky_read, FlakyRead)
-    inv = await tool_harness.invoke(organization_id=org, tool_name="test.flaky_read", args={})
+    inv = await tool_harness.invoke(
+        actor_role=Role.OPERATOR, organization_id=org, tool_name="test.flaky_read", args={}
+    )
     assert inv.output == {"calls": 3} and inv.attempts == 3
 
     flaky_write = tool_harness.catalog.get("test.flaky_write")
     assert isinstance(flaky_write, FlakyWriteNoKey)
     with pytest.raises(ToolTransientError):
-        await tool_harness.invoke(organization_id=org, tool_name="test.flaky_write", args={})
+        await tool_harness.invoke(
+            actor_role=Role.OPERATOR, organization_id=org, tool_name="test.flaky_write", args={}
+        )
     assert flaky_write.calls == 1  # a non-deduplicating write is never blindly repeated
 
 
@@ -164,12 +181,18 @@ async def test_timeout_crash_and_bad_output_are_contained(
     tool_harness: ToolExecutor, org: uuid.UUID, db: AsyncSession
 ) -> None:
     with pytest.raises(ToolTimeout):
-        await tool_harness.invoke(organization_id=org, tool_name="test.slow", args={})
+        await tool_harness.invoke(
+            actor_role=Role.OPERATOR, organization_id=org, tool_name="test.slow", args={}
+        )
     with pytest.raises(ToolTransientError) as ei:
-        await tool_harness.invoke(organization_id=org, tool_name="test.boom", args={})
+        await tool_harness.invoke(
+            actor_role=Role.OPERATOR, organization_id=org, tool_name="test.boom", args={}
+        )
     assert "hunter2" not in str(ei.value) and "hunter2" not in str(ei.value.details)
     with pytest.raises(ToolOutputInvalid):
-        await tool_harness.invoke(organization_id=org, tool_name="test.bad_output", args={})
+        await tool_harness.invoke(
+            actor_role=Role.OPERATOR, organization_id=org, tool_name="test.bad_output", args={}
+        )
     rows = (await db.scalars(sa.select(ToolCall.error))).all()
     assert "hunter2" not in str(rows)
 
@@ -189,18 +212,21 @@ async def test_same_key_creates_one_ticket_and_replays(
     tool_harness: ToolExecutor, org: uuid.UUID, db: AsyncSession
 ) -> None:
     a = await tool_harness.invoke(
+        actor_role=Role.OPERATOR,
         organization_id=org,
         tool_name="ticketing.create_ticket",
         args=TICKET,
         idempotency_key="exec-1:create:1",
     )
     b = await tool_harness.invoke(
+        actor_role=Role.OPERATOR,
         organization_id=org,
         tool_name="ticketing.create_ticket",
         args=TICKET,
         idempotency_key="exec-1:create:1",
     )
     c = await tool_harness.invoke(
+        actor_role=Role.OPERATOR,
         organization_id=org,
         tool_name="ticketing.create_ticket",
         args=TICKET,
@@ -218,6 +244,7 @@ async def test_concurrent_same_key_creates_exactly_one_ticket(
     results = await asyncio.gather(
         *[
             tool_harness.invoke(
+                actor_role=Role.OPERATOR,
                 organization_id=org,
                 tool_name="ticketing.create_ticket",
                 args=TICKET,
@@ -240,18 +267,21 @@ async def test_external_and_high_risk_tools_require_approval_and_are_audited(
     tool_harness: ToolExecutor, org: uuid.UUID, db: AsyncSession
 ) -> None:
     draft = await tool_harness.invoke(
+        actor_role=Role.OPERATOR,
         organization_id=org,
         tool_name="email.draft_message",
         args={"to": "ada@example.com", "subject": "Your order", "body": "Sorry for the delay"},
     )
     with pytest.raises(ToolApprovalRequired):
         await tool_harness.invoke(
+            actor_role=Role.OPERATOR,
             organization_id=org,
             tool_name="email.send_message",
             args={"message_id": draft.output["message_id"]},
         )
     with pytest.raises(ToolApprovalRequired) as ei:
         await tool_harness.invoke(
+            actor_role=Role.OPERATOR,
             organization_id=org,
             tool_name="payments.issue_refund",
             args={"order_ref": "O-50001", "amount_cents": 100, "reason": "late"},
@@ -277,7 +307,10 @@ async def test_tenant_policy_can_require_approval_for_low_risk_writes(
     )
     with pytest.raises(ToolApprovalRequired):
         await tool_harness.invoke(
-            organization_id=org, tool_name="ticketing.create_ticket", args=TICKET
+            actor_role=Role.OPERATOR,
+            organization_id=org,
+            tool_name="ticketing.create_ticket",
+            args=TICKET,
         )
 
 

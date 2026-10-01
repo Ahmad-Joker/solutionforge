@@ -14,10 +14,16 @@ from solutionforge.api.errors import install_error_handlers
 from solutionforge.api.middleware import RequestContextMiddleware
 from solutionforge.api.v1 import audit, auth, knowledge, orgs, tools, usage, workflows
 from solutionforge.core.config import Settings, get_settings
-from solutionforge.core.logging import configure_logging
+from solutionforge.core.logging import configure_logging, get_logger
 from solutionforge.db.session import build_engine, build_sessionmaker
 from solutionforge.llm.factory import build_llm_service
 from solutionforge.retrieval.factory import build_retriever
+from solutionforge.security.ratelimit import (
+    FailOpenRateLimiter,
+    InMemoryRateLimiter,
+    RateLimiter,
+    RedisRateLimiter,
+)
 from solutionforge.tools.factory import build_tool_executor
 from solutionforge.workflows.steps import default_registry
 
@@ -52,6 +58,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.llm_service, app.state.tool_executor, app.state.retriever
     )
 
+    app.state.rate_limiter = build_rate_limiter(settings)
+
     install_error_handlers(app)
     app.add_middleware(
         CORSMiddleware,
@@ -74,6 +82,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(v1)
     app.include_router(health.router)
     return app
+
+
+def build_rate_limiter(settings: Settings) -> RateLimiter:
+    if settings.redis_url is None:
+        return InMemoryRateLimiter()
+    import redis.asyncio as redis
+
+    log = get_logger("solutionforge.ratelimit")
+    client = redis.from_url(settings.redis_url.get_secret_value(), socket_timeout=0.5)
+    return FailOpenRateLimiter(
+        RedisRateLimiter(client),
+        on_error=lambda exc: log.warning("rate_limiter_unavailable", error=type(exc).__name__),
+    )
 
 
 def app_factory() -> FastAPI:  # uvicorn --factory solutionforge.main:app_factory

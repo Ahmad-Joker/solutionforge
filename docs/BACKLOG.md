@@ -116,7 +116,15 @@ Ingestion (upload → parse → chunk → embed) as background jobs; pgvector HN
 citations bound to chunk IDs, with a verifier that rejects unknown IDs. Later: BM25
 (`tsvector`), hybrid RRF, reranking, and a retrieval eval (recall@k, MRR).
 
-## Phase 7 — RBAC + tool permissions + policy engine
+## Phase 7 — RBAC + tool permissions + policy engine ✅
+
+- [x] Tool policy evaluated as the execution's initiator (current role, resolved per step); removed or demoted initiators denied (tested)
+- [x] Org tool policy (`blocked_tools`, `blocked_risk_levels`, `auto_allow_up_to`) via an audited API
+- [x] Requester permission separated from approver permission
+- [x] Rate limiting: login (account + IP), registration, refresh; Redis or in-memory; fail-open on backend errors
+- [ ] Postgres RLS (deferred with rationale, ADR-0011; needs real PostgreSQL)
+
+Original plan:
 PolicyEngine (risk × tenant policy × role) → ALLOW / REQUIRE_APPROVAL / DENY. Redis login rate
 limiting. Postgres RLS as defense in depth.
 

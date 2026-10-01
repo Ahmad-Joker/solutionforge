@@ -23,6 +23,7 @@ dependencies = [
     "jsonschema>=4.23",
     "cryptography>=43",
     "pgvector>=0.3",
+    "redis>=5.0",
 ]
 
 [project.optional-dependencies]

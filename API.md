@@ -16,6 +16,7 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 - **Request IDs:** send `X-Request-ID` (8–64 chars of `[A-Za-z0-9._-]`) or one is generated.
   It is echoed back in the response header and stored on audit events.
 - **Unknown fields** in request bodies are rejected (422).
+- **Rate limits:** `/auth/login`, `/auth/register` and `/auth/refresh` return `429 rate_limited` with a `Retry-After` header.
 
 ## Endpoints
 
@@ -66,6 +67,8 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | GET/DELETE | `/orgs/{org_id}/documents/{id}` | read / write | status, attempts, last_error |
 | POST | `/orgs/{org_id}/documents/{id}/retry` | `knowledge:write` | re-queue a dead-lettered document |
 | POST | `/orgs/{org_id}/knowledge-bases/{id}/search` | `knowledge:read` | `{query, top_k, strategy: dense\|keyword\|hybrid, filters, min_dense_score}` |
+| GET | `/orgs/{org_id}/tool-policy` | `tool:read` | |
+| PUT | `/orgs/{org_id}/tool-policy` | `org:manage` | `{auto_allow_up_to, blocked_tools, blocked_risk_levels}`; audited |
 | GET | `/healthz`, `/readyz` | public | liveness / readiness (DB) |
 
 ## Walkthrough

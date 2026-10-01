@@ -51,6 +51,8 @@ class ToolSpec:
     input_model: type[ToolModel]
     output_model: type[ToolModel]
     risk_level: RiskLevel
+    # Permission the execution's *initiator* needs to cause this call. Who may *approve* a
+    # gated call is decided by the policy (approval:decide / approval:decide_high_risk).
     required_permission: Permission
     timeout_seconds: float = 10.0
     max_attempts: int = 1  # retries only for transient errors

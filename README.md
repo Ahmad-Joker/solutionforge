@@ -2,7 +2,7 @@
 
 **A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
 
-> **Project status: Phases 0–6 of 19 complete.** This README only describes what exists and is
+> **Project status: Phases 0–7 of 19 complete.** This README only describes what exists and is
 > tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
 > [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
 > once they exist and are measured.
@@ -12,6 +12,7 @@
 | Capability | Details |
 |---|---|
 | **Authentication** | Argon2id passwords; 15-min JWT access tokens (pinned alg, aud/iss/typ checks); opaque rotating refresh tokens with **reuse detection that revokes the whole session family** |
+| **Tool authorization** | Every tool call is authorized as the **execution's initiator, re-resolved at call time** (demoted or removed users are cut off mid-workflow), plus an org-wide tool policy (block tools or risk levels) and a risk gate. Login, registration and refresh are rate-limited |
 | **Multi-tenancy** | Organizations and memberships; every tenant route resolves membership first; foreign resources are **indistinguishable from missing ones (404)** |
 | **RBAC** | OWNER / ADMIN / OPERATOR / VIEWER → deterministic permission matrix; rank rules (no granting above your own role, no demoting a higher role); last-owner protection with row locks |
 | **Invitations** | Email-bound, single-use, expiring, hashed at rest |
@@ -94,7 +95,7 @@ Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
 
 ## Roadmap
 
-Policy engine → human approvals → dashboard →
+Human approvals → dashboard →
 evaluation and quality-gated deployment → observability → cloud deployment → security and load
 testing → three customer case studies. Details and acceptance criteria are in
 [docs/BACKLOG.md](docs/BACKLOG.md).

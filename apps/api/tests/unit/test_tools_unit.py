@@ -14,6 +14,7 @@ from solutionforge.connectors.simulated import (
 )
 from solutionforge.domain.tools import ToolInstallation
 from solutionforge.security.crypto import CredentialCipher, CredentialError
+from solutionforge.security.rbac import Role
 from solutionforge.tools import policy
 from solutionforge.tools.catalog import ToolCatalog, default_catalog
 from solutionforge.tools.policy import Decision
@@ -80,11 +81,11 @@ SPECS = {s.risk_level: s for s in default_catalog().specs()}
     ],
 )
 def test_policy_matrix(risk: RiskLevel, inst: ToolInstallation | None, expected: Decision) -> None:
-    assert policy.evaluate(SPECS[risk], inst).decision == expected
+    assert policy.evaluate(SPECS[risk], inst, actor_role=Role.OPERATOR).decision == expected
 
 
 def test_high_risk_needs_privileged_approver() -> None:
-    r = policy.evaluate(SPECS[RiskLevel.HIGH_RISK], _inst())
+    r = policy.evaluate(SPECS[RiskLevel.HIGH_RISK], _inst(), actor_role=Role.OPERATOR)
     assert r.approver_permission is not None
     assert r.approver_permission.value == "approval:decide_high_risk"
 

@@ -30,6 +30,7 @@ from typing import Any, Protocol
 from solutionforge.llm import structured
 from solutionforge.llm.service import LLMService
 from solutionforge.llm.types import CallContext, LLMCall, Message, ModelRef
+from solutionforge.security.rbac import Role
 from solutionforge.services.audit_service import sanitize_metadata
 from solutionforge.tools.catalog import ToolCatalog
 from solutionforge.tools.executor import ToolInvocation
@@ -51,6 +52,7 @@ class Executor(Protocol):
         idempotency_key: str | None = None,
         execution_id: uuid.UUID | None = None,
         step_id: str | None = None,
+        actor_role: Role | None = None,
     ) -> ToolInvocation: ...
 
 
@@ -147,6 +149,7 @@ async def run_agent(
     executor: Executor,
     ctx: CallContext,
     key_prefix: str,
+    actor_role: Role | None = None,
 ) -> AgentResult:
     """Run the loop. ``key_prefix`` must be stable for this step visit (idempotency)."""
     schema = action_schema(cfg.tools)
@@ -267,6 +270,7 @@ async def run_agent(
                 idempotency_key=f"{key_prefix}:a{turn}:{signature}",
                 execution_id=ctx.execution_id,
                 step_id=ctx.step_id,
+                actor_role=actor_role,
             )
         except (ToolApprovalRequired, ToolDenied) as exc:
             entry["outcome"] = "blocked_by_policy"

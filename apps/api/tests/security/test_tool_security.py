@@ -7,6 +7,7 @@ import uuid
 import pytest
 from httpx import AsyncClient
 
+from solutionforge.security.rbac import Role
 from solutionforge.tools.executor import ToolExecutor
 from solutionforge.tools.spec import ToolBusinessError, ToolNotEnabled
 from tests.helpers import Api
@@ -29,6 +30,7 @@ async def test_tools_cannot_reach_another_tenants_data(
     _, victim_org = await _seeded(api, client)
     # Victim creates a ticket with a known key.
     await tool_harness.invoke(
+        actor_role=Role.OPERATOR,
         organization_id=uuid.UUID(victim_org),
         tool_name="ticketing.create_ticket",
         args={"subject": "victim secret", "body": "x"},
@@ -40,6 +42,7 @@ async def test_tools_cannot_reach_another_tenants_data(
     # Not installed for the attacker: refused before anything runs.
     with pytest.raises(ToolNotEnabled):
         await tool_harness.invoke(
+            actor_role=Role.OPERATOR,
             organization_id=uuid.UUID(attacker_org),
             tool_name="crm.get_customer",
             args={"customer_ref": "C-1001"},
@@ -50,6 +53,7 @@ async def test_tools_cannot_reach_another_tenants_data(
     )
     with pytest.raises(ToolBusinessError):
         await tool_harness.invoke(
+            actor_role=Role.OPERATOR,
             organization_id=uuid.UUID(attacker_org),
             tool_name="crm.get_customer",
             args={"customer_ref": "C-1001"},
@@ -61,6 +65,7 @@ async def test_tools_cannot_reach_another_tenants_data(
         headers=attacker.headers,
     )
     inv = await tool_harness.invoke(
+        actor_role=Role.OPERATOR,
         organization_id=uuid.UUID(attacker_org),
         tool_name="ticketing.create_ticket",
         args={"subject": "mine", "body": "y"},

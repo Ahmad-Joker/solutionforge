@@ -82,6 +82,9 @@ class StepContext:
     cost_limit_micro_usd: int | None = None  # from the definition's limits.max_cost_usd
     llm_token_limit: int | None = None  # from limits.max_llm_tokens
     visit: int = 0  # execution.visit_seq at the time this step visit started
+    # Current role of the execution's creator, resolved when the step starts (None = no
+    # longer a member). Tool policy uses it; it is never taken from execution input.
+    initiator_role: str | None = None
 
     @property
     def idempotency_key(self) -> str:

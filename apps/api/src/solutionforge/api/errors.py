@@ -12,7 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from solutionforge.core.errors import DomainError
+from solutionforge.core.errors import DomainError, TooManyRequests
 from solutionforge.core.logging import get_logger
 from solutionforge.tools.spec import ToolError, ToolNotFound
 
@@ -20,9 +20,16 @@ log = get_logger(__name__)
 
 
 def _envelope(
-    request: Request, status: int, code: str, message: str, details: dict[str, Any] | None = None
+    request: Request,
+    status: int,
+    code: str,
+    message: str,
+    details: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
-    headers = {"WWW-Authenticate": "Bearer"} if status == 401 else None
+    headers = dict(headers or {})
+    if status == 401:
+        headers["WWW-Authenticate"] = "Bearer"
     return JSONResponse(
         status_code=status,
         headers=headers,
@@ -42,7 +49,12 @@ def install_error_handlers(app: FastAPI) -> None:
     async def _domain(request: Request, exc: DomainError) -> JSONResponse:
         if exc.status_code >= 500:
             log.error("domain_error", code=exc.code, message=exc.message)
-        return _envelope(request, exc.status_code, exc.code, exc.message, exc.details)
+        headers = (
+            {"Retry-After": str(exc.retry_after_seconds)}
+            if isinstance(exc, TooManyRequests)
+            else None
+        )
+        return _envelope(request, exc.status_code, exc.code, exc.message, exc.details, headers)
 
     @app.exception_handler(ToolError)
     async def _tool(request: Request, exc: ToolError) -> JSONResponse:

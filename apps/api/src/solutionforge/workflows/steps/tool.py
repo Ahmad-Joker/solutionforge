@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
 
+from solutionforge.security.rbac import Role
 from solutionforge.tools.catalog import ToolCatalog
 from solutionforge.tools.executor import ToolExecutor
 from solutionforge.tools.spec import ToolError
@@ -65,6 +66,7 @@ class ToolStep(StepHandler[ToolStepConfig]):
                 idempotency_key=ctx.idempotency_key,
                 execution_id=ctx.execution_id,
                 step_id=ctx.step_id,
+                actor_role=Role(ctx.initiator_role) if ctx.initiator_role else None,
             )
         except ToolError as exc:
             raise StepError(

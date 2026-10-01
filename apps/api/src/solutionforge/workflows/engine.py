@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from solutionforge.core.clock import utcnow
 from solutionforge.core.logging import get_logger
+from solutionforge.domain.identity import Membership
 from solutionforge.domain.workflow import (
     Execution,
     ExecutionStatus,
@@ -333,6 +334,7 @@ class Engine:
                 cost_limit_micro_usd=limits.max_cost_micro_usd,
                 llm_token_limit=limits.max_llm_tokens,
                 visit=ex.visit_seq,
+                initiator_role=await _initiator_role(s, ex),
             )
             return compiled, step, ctx, snap
 
@@ -426,3 +428,15 @@ class Engine:
     ) -> None:
         await self._fenced_update(s, ex.id, transitions.terminal_values(status, now, error=error))
         log.info("execution_finished", execution_id=str(ex.id), status=status.value, **error)
+
+
+async def _initiator_role(s: AsyncSession, ex: Execution) -> str | None:
+    if ex.created_by_user_id is None:
+        return None
+    role = await s.scalar(
+        sa.select(Membership.role).where(
+            Membership.organization_id == ex.organization_id,
+            Membership.user_id == ex.created_by_user_id,
+        )
+    )
+    return role.value if role is not None else None

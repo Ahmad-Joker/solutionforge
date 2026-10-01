@@ -435,7 +435,7 @@ class SendMessage(Tool):
         input_model=SendMessageIn,
         output_model=MessageOut,
         risk_level=RiskLevel.EXTERNAL_ACTION,
-        required_permission=Permission.APPROVAL_DECIDE,
+        required_permission=Permission.WORKFLOW_EXECUTE,
         supports_idempotency_key=True,
         requires_credentials=True,
         config_keys=("from_address",),
@@ -488,7 +488,7 @@ class IssueRefund(Tool):
         input_model=IssueRefundIn,
         output_model=RefundOut,
         risk_level=RiskLevel.HIGH_RISK,
-        required_permission=Permission.APPROVAL_DECIDE_HIGH_RISK,
+        required_permission=Permission.WORKFLOW_EXECUTE,
         supports_idempotency_key=True,
     )
 

@@ -40,6 +40,7 @@ services:
     env_file: [.env]
     environment:
       SF_DATABASE_URL: postgresql+asyncpg://solutionforge:${POSTGRES_PASSWORD:-solutionforge}@postgres:5432/solutionforge
+      SF_REDIS_URL: redis://redis:6379/0
     ports: ["8000:8000"]
     depends_on:
       migrate: { condition: service_completed_successfully }

@@ -15,6 +15,7 @@ from solutionforge.core.clock import utcnow
 from solutionforge.core.errors import ValidationFailed
 from solutionforge.db.tenancy import TenantContext, scoped_select
 from solutionforge.domain.audit import AuditEventType
+from solutionforge.domain.policy import OrgPolicy
 from solutionforge.domain.simulated import SimMessage, SimRefund, SimTicket
 from solutionforge.domain.tools import ToolCall, ToolInstallation
 from solutionforge.security.crypto import CredentialCipher
@@ -23,6 +24,7 @@ from solutionforge.services import audit_service
 from solutionforge.services.audit_service import RequestMeta
 from solutionforge.services.authz import ensure
 from solutionforge.tools.catalog import ToolCatalog
+from solutionforge.tools.policy import ToolPolicyConfig
 from solutionforge.tools.spec import ToolSpec
 
 MAX_CREDENTIAL_BYTES = 4096
@@ -229,3 +231,48 @@ async def simulated_activity(
             {"id": str(r.id), "amount_cents": r.amount_cents, "reason": r.reason} for r in refunds
         ],
     }
+
+
+async def get_tool_policy(
+    session: AsyncSession, ctx: TenantContext
+) -> tuple[ToolPolicyConfig, datetime | None]:
+    ensure(ctx, Permission.TOOL_READ)
+    row = await session.scalar(scoped_select(OrgPolicy, ctx))
+    if row is None:
+        return ToolPolicyConfig(), None
+    return ToolPolicyConfig.model_validate(row.tool_policy), row.updated_at
+
+
+async def set_tool_policy(
+    session: AsyncSession,
+    ctx: TenantContext,
+    catalog: ToolCatalog,
+    config: ToolPolicyConfig,
+    *,
+    request: RequestMeta,
+) -> ToolPolicyConfig:
+    ensure(ctx, Permission.ORG_MANAGE)
+    unknown = sorted(t for t in config.blocked_tools if not catalog.has(t))
+    if unknown:
+        raise ValidationFailed(f"unknown tools in blocked_tools: {unknown}")
+    row = await session.scalar(scoped_select(OrgPolicy, ctx).with_for_update())
+    before = row.tool_policy if row is not None else None
+    if row is None:
+        row = OrgPolicy(organization_id=ctx.organization_id)
+        session.add(row)
+    row.tool_policy = config.model_dump(mode="json")
+    row.updated_by_user_id = ctx.user_id
+    row.updated_at = utcnow()
+    await session.flush()
+    audit_service.record(
+        session,
+        event_type=AuditEventType.POLICY_UPDATED,
+        request=request,
+        actor_user_id=ctx.user_id,
+        organization_id=ctx.organization_id,
+        resource_type="org_policy",
+        resource_id=row.id,
+        metadata={"before": before, "after": row.tool_policy},
+    )
+    await session.commit()
+    return config

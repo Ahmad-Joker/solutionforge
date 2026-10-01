@@ -42,6 +42,15 @@ class NotFound(DomainError):
     status_code = 404
 
 
+class TooManyRequests(DomainError):
+    code = "rate_limited"
+    status_code = 429
+
+    def __init__(self, message: str, *, retry_after_seconds: int) -> None:
+        super().__init__(message, details={"retry_after_seconds": retry_after_seconds})
+        self.retry_after_seconds = retry_after_seconds
+
+
 class Conflict(DomainError):
     code = "conflict"
     status_code = 409

@@ -56,6 +56,8 @@ class AuditEventType(StrEnum):
     DOCUMENT_ADDED = "document.added"
     DOCUMENT_DELETED = "document.deleted"
 
+    POLICY_UPDATED = "org.policy_updated"
+
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_events"

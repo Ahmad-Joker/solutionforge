@@ -3,6 +3,7 @@
 from solutionforge.domain.audit import AuditEvent, AuditEventType
 from solutionforge.domain.identity import Invitation, Membership, Organization, RefreshToken, User
 from solutionforge.domain.knowledge import Chunk, Document, DocumentStatus, KnowledgeBase
+from solutionforge.domain.policy import OrgPolicy
 from solutionforge.domain.simulated import SimCustomer, SimMessage, SimOrder, SimRefund, SimTicket
 from solutionforge.domain.tools import ToolCall, ToolCallStatus, ToolInstallation
 from solutionforge.domain.usage import OrgBudget, UsageRecord
@@ -29,6 +30,7 @@ __all__ = [
     "KnowledgeBase",
     "Membership",
     "OrgBudget",
+    "OrgPolicy",
     "Organization",
     "RefreshToken",
     "SimCustomer",

@@ -31,8 +31,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from solutionforge.core.clock import utcnow
 from solutionforge.core.logging import get_logger
 from solutionforge.domain.audit import AuditEventType
+from solutionforge.domain.policy import OrgPolicy
 from solutionforge.domain.tools import ToolCall, ToolCallStatus, ToolInstallation
 from solutionforge.security.crypto import CredentialCipher, CredentialError
+from solutionforge.security.rbac import Role
 from solutionforge.services import audit_service
 from solutionforge.services.audit_service import RequestMeta, sanitize_metadata
 from solutionforge.tools import policy
@@ -90,7 +92,10 @@ class ToolExecutor:
         idempotency_key: str | None = None,
         execution_id: uuid.UUID | None = None,
         step_id: str | None = None,
+        actor_role: Role | None = None,
     ) -> ToolInvocation:
+        """``actor_role``: the *current* role of whoever initiated the call (for workflows,
+        the execution's creator). ``None`` means no valid principal and is always denied."""
         tool = self.catalog.get(tool_name)  # ToolNotFound
         spec = tool.spec
         installation = await self._installation(organization_id, tool_name)
@@ -107,7 +112,12 @@ class ToolExecutor:
             ) from None
         safe_args = sanitize_metadata(parsed.model_dump(mode="json"))
 
-        decision = policy.evaluate(spec, installation)
+        decision = policy.evaluate(
+            spec,
+            installation,
+            actor_role=actor_role,
+            org_policy=await self._org_policy(organization_id),
+        )
         if decision.decision != policy.Decision.ALLOW:
             await self._record_refusal(
                 organization_id,
@@ -228,6 +238,13 @@ class ToolExecutor:
                     ToolInstallation.organization_id == org, ToolInstallation.tool_name == name
                 )
             )
+
+    async def _org_policy(self, org: uuid.UUID) -> policy.ToolPolicyConfig:
+        async with self.sessionmaker() as s:
+            raw = await s.scalar(
+                sa.select(OrgPolicy.tool_policy).where(OrgPolicy.organization_id == org)
+            )
+        return policy.ToolPolicyConfig.model_validate(raw or {})
 
     def _credentials(
         self, name: str, inst: ToolInstallation, required: bool

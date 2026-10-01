@@ -54,9 +54,15 @@ class Settings(BaseSettings):
     # a restart, which is acceptable locally and never silently used in production).
     credentials_keys: SecretStr | None = None
 
+    # Shared rate-limit state across API replicas. Unset = in-memory (per process).
+    redis_url: SecretStr | None = None
+    rate_limit_enabled: bool = True
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
-    @field_validator("jwt_secret", "anthropic_api_key", "credentials_keys", mode="before")
+    @field_validator(
+        "jwt_secret", "anthropic_api_key", "credentials_keys", "redis_url", mode="before"
+    )
     @classmethod
     def _blank_is_unset(cls, v: object) -> object:
         # `SF_JWT_SECRET=` in an env file means "not configured", not "an empty secret".

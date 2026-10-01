@@ -18,6 +18,7 @@ from solutionforge.llm.types import (
     LLMError,
     ModelRef,
 )
+from solutionforge.security.rbac import Role
 from solutionforge.tools.executor import ToolExecutor
 from solutionforge.workflows import expressions
 from solutionforge.workflows.registry import StepContext, StepError, StepHandler, StepResult
@@ -113,6 +114,7 @@ class AgentStep(StepHandler[AgentStepConfig]):
                 executor=self.executor,
                 ctx=call_ctx,
                 key_prefix=ctx.idempotency_key,
+                actor_role=Role(ctx.initiator_role) if ctx.initiator_role else None,
             )
         except AgentStopped as exc:
             raise StepError(exc.message, code=exc.code, details={"trace": exc.trace}) from exc

@@ -13,6 +13,7 @@ from solutionforge.api.deps import RequestMetaDep, SessionDep, TenantDep
 from solutionforge.domain.tools import ToolInstallation
 from solutionforge.services import tool_service
 from solutionforge.tools.executor import ToolExecutor
+from solutionforge.tools.policy import ToolPolicyConfig
 from solutionforge.tools.spec import TOOL_NAME_PATTERN, ToolSpec
 
 router = APIRouter(prefix="/orgs/{org_id}", tags=["tools"])
@@ -165,3 +166,29 @@ async def seed_demo_data(
 @router.get("/simulated/activity")
 async def simulated_activity(session: SessionDep, ctx: TenantDep) -> dict[str, Any]:
     return await tool_service.simulated_activity(session, ctx)
+
+
+class ToolPolicyOut(BaseModel):
+    policy: ToolPolicyConfig
+    updated_at: datetime | None
+
+
+@router.get("/tool-policy", response_model=ToolPolicyOut)
+async def get_tool_policy(session: SessionDep, ctx: TenantDep) -> ToolPolicyOut:
+    policy, updated = await tool_service.get_tool_policy(session, ctx)
+    return ToolPolicyOut(policy=policy, updated_at=updated)
+
+
+@router.put("/tool-policy", response_model=ToolPolicyOut)
+async def put_tool_policy(
+    body: ToolPolicyConfig,
+    request: Request,
+    session: SessionDep,
+    ctx: TenantDep,
+    meta: RequestMetaDep,
+) -> ToolPolicyOut:
+    policy = await tool_service.set_tool_policy(
+        session, ctx, _executor(request).catalog, body, request=meta
+    )
+    _, updated = await tool_service.get_tool_policy(session, ctx)
+    return ToolPolicyOut(policy=policy, updated_at=updated)

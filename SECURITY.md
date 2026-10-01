@@ -27,7 +27,7 @@ actions, audit history, and model spend.
 | T5 | Stolen refresh token | Replay after theft | Rotation on every use; reuse revokes the whole family; audited | ✅ |
 | T6 | Stale authorization | Removed member keeps using a valid JWT | Role resolved from DB per request, not stored in the token | ✅ |
 | T7 | Account enumeration | Login responses and timing | Same message for unknown user and wrong password; dummy Argon2 verify | ✅ (registration still reveals existing emails; see Known gaps) |
-| T8 | Credential brute force | High-rate login attempts | Failed logins audited | 🟡 rate limiting ⬜ Phase 7 (Redis) |
+| T8 | Credential brute force | High-rate login attempts | Failed logins audited | ✅ Fixed-window limits: login per account (10/5 min) and per IP (50/5 min), registration and refresh per IP; Redis-backed when configured (fails open on a Redis outage, logged); 429 + Retry-After (tested) |
 | T9 | Hash-flood DoS | Very large password input | 128-char cap in the schema, enforced before hashing | ✅ |
 | T10 | Audit tampering | App bug or compromised DB writer | Insert-only service API; PG trigger rejects UPDATE/DELETE | ✅ |
 | T11 | Secret leakage via logs | Tokens and passwords in metadata or errors | Metadata redaction; validation errors drop `input`; opaque 500s; request-ID header sanitized | ✅ |
@@ -50,14 +50,15 @@ actions, audit history, and model spend.
 | T29 | Idempotency key misuse | Same key, different payload | Executor rejects mismatched args on replay (`tool_idempotency_conflict`) | ✅ |
 | T30 | Cross-tenant retrieval | Same KB name in another org; victim KB or doc IDs in own-org paths | Every query filters org + KB in SQL; steps resolve KB names within their own org only (tested, incl. same-name KBs) | ✅ |
 | T31 | Poisoned documents / injection via sources | A retrieved text contains instructions | Sources are delimited and marked untrusted; `grounded_answer` has no tools; agents act only through the policy gate | 🟡 (adversarial corpus P16) |
+| T32 | Stale authority in long-running workflows | User demoted or removed after starting an execution | Initiator's role re-resolved per tool step; policy denies if they're no longer a member or lack the permission (tested) | ✅ |
+| T33 | Org-wide kill switch for risky tools | Incident response needs to stop a tool now | `PUT /tool-policy` blocks tools or risk levels for all workflows immediately; audited | ✅ |
 | T17 | Supply-chain vulnerabilities | Vulnerable dependencies | `pip-audit` in CI; pinned base images | 🟡 |
 
 ## Known gaps (tracked in the backlog)
 
-- No login rate limiting yet (Redis-backed limiter planned).
 - Registration returns 409 for existing emails, which enables enumeration. The planned
   mitigation is email verification, with a uniform "check your inbox" response.
-- PostgreSQL Row-Level Security is not enabled yet (application-level scoping only).
+- PostgreSQL Row-Level Security is not enabled yet (application-level scoping only). The reasoning and plan are in ADR-0011.
 - Refresh tokens are returned in JSON. The dashboard will use an httpOnly-cookie
   backend-for-frontend (BFF).
 - Invitation tokens are shown to the inviting admin because there is no email delivery yet.

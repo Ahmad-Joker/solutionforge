@@ -11,15 +11,18 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from solutionforge.core.config import Settings
-from solutionforge.core.errors import AuthenticationFailed
+from solutionforge.core.errors import AuthenticationFailed, TooManyRequests
+from solutionforge.core.logging import get_logger
 from solutionforge.db.tenancy import TenantContext
 from solutionforge.domain.identity import User
+from solutionforge.security.ratelimit import Limit, RateLimiter
 from solutionforge.security.tokens import decode_access_token
 from solutionforge.services import auth_service, org_service
 from solutionforge.services.audit_service import RequestMeta
 from solutionforge.workflows.registry import StepRegistry
 
 _bearer = HTTPBearer(auto_error=False)
+log = get_logger(__name__)
 
 
 def get_settings(request: Request) -> Settings:
@@ -75,3 +78,22 @@ async def get_tenant(
 
 
 TenantDep = Annotated[TenantContext, Depends(get_tenant)]
+
+
+async def enforce_rate_limit(request: Request, limit: Limit, key: str) -> None:
+    """Raise 429 when ``key`` exceeded ``limit``. Called inside routes (keys may depend on
+    the request body, e.g. the login email)."""
+    settings: Settings = request.app.state.settings
+    if not settings.rate_limit_enabled:
+        return
+    limiter: RateLimiter = request.app.state.rate_limiter
+    decision = await limiter.hit(limit, key)
+    if not decision.allowed:
+        log.warning("rate_limited", limit=limit.name, path=request.url.path)
+        raise TooManyRequests(
+            "Too many requests; try again later", retry_after_seconds=decision.retry_after_seconds
+        )
+
+
+def client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
