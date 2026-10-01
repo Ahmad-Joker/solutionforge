@@ -143,7 +143,14 @@ Approval requests with proposed action, parameters, reason, risk, and source exe
 Approve / Reject / Modify (the modified arguments are re-validated and re-policy-checked).
 Resume across restarts.
 
-## Phase 9 — Frontend (Next.js + TS + Tailwind)
+## Phase 9 — Frontend (Next.js + TS + Tailwind) ✅
+
+- [x] BFF auth with httpOnly cookies, refresh rotation in the proxy, CSRF header, path validation, security headers
+- [x] Pages: orgs, overview, workflows/versions/deploy/run, execution timeline + agent trace + citations, approvals inbox, knowledge + search, tools + policy, usage + budget, audit
+- [x] Strict TypeScript, production standalone build, Dockerfile, compose service, CI job
+- [ ] Visual design polish; a graphical workflow editor (JSON editor today)
+
+Original plan:
 Auth via a BFF with httpOnly cookies; orgs and members; workflow editor (JSON + form);
 execution timeline; approvals inbox; eval comparison view.
 

@@ -25,6 +25,18 @@ and `.env.example`).
 | `SF_CORS_ORIGINS` | no | `["http://localhost:3000"]` | JSON list |
 | `SF_LOG_JSON` / `SF_LOG_LEVEL` | no | `true` / `INFO` | |
 
+## Web (apps/web)
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SF_API_URL` | `http://localhost:8000` | server-side only (BFF → API); never exposed to the browser |
+
+Run it with `npm run build && npm start`, which uses the standalone server
+(`node .next/standalone/server.js`, after copying `.next/static`; the Docker image does this).
+In production, terminate TLS in front of the web app so cookies get the `Secure` flag
+(automatic when `NODE_ENV=production`). Keep the API on a private network and set uvicorn's
+`FORWARDED_ALLOW_IPS` to the BFF's address only.
+
 ## Local stack
 
 ```bash

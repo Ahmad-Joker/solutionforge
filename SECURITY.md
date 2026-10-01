@@ -53,6 +53,8 @@ actions, audit history, and model spend.
 | T32 | Stale authority in long-running workflows | User demoted or removed after starting an execution | Initiator's role re-resolved per tool step; policy denies if they're no longer a member or lack the permission (tested) | ✅ |
 | T33 | Org-wide kill switch for risky tools | Incident response needs to stop a tool now | `PUT /tool-policy` blocks tools or risk levels for all workflows immediately; audited | ✅ |
 | T34 | Approval bypass / self-approval | Resume endpoint misuse, approving one's own high-risk request, stale approval reused | Decisions only via the approvals API (resume refuses tool approvals); approver permission from policy; four-eyes for high risk; approvals bound to one step visit; policy re-checked at execution (tested) | ✅ |
+| T35 | Token theft via XSS | Script injection in the dashboard | Tokens only in httpOnly cookies set by the BFF; JSON rendered as text (React escaping); `X-Frame-Options: DENY`, `nosniff` | ✅ |
+| T36 | CSRF against the BFF | Cross-site form posts using the session cookie | SameSite=Lax + mandatory `x-sf-csrf` header on mutating proxy calls (custom headers can't be sent cross-site without CORS, which isn't enabled) (verified) | ✅ |
 | T17 | Supply-chain vulnerabilities | Vulnerable dependencies | `pip-audit` in CI; pinned base images | 🟡 |
 
 ## Known gaps (tracked in the backlog)
@@ -60,8 +62,8 @@ actions, audit history, and model spend.
 - Registration returns 409 for existing emails, which enables enumeration. The planned
   mitigation is email verification, with a uniform "check your inbox" response.
 - PostgreSQL Row-Level Security is not enabled yet (application-level scoping only). The reasoning and plan are in ADR-0011.
-- Refresh tokens are returned in JSON. The dashboard will use an httpOnly-cookie
-  backend-for-frontend (BFF).
+- The API still returns refresh tokens in JSON for API clients. The dashboard never exposes them (BFF with httpOnly cookies).
+- Per-IP rate limits behind the BFF rely on `X-Forwarded-For`. The edge load balancer must overwrite it, and the API must trust it only from the BFF (`FORWARDED_ALLOW_IPS`).
 - Invitation tokens are shown to the inviting admin because there is no email delivery yet.
 
 ## Reporting

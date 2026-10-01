@@ -38,7 +38,7 @@ deployables when there's a measured reason.
 ```mermaid
 flowchart LR
   subgraph Client
-    WEB[Next.js dashboard ⬜]
+    WEB[Next.js dashboard + BFF ✅]
     SDK[API clients / curl ✅]
   end
 
@@ -462,7 +462,27 @@ sequenceDiagram
   step after it requests the approval. This keeps suspend/resume at step boundaries, where
   state is fully checkpointed.
 
-## 12. Cross-cutting decisions
+## 12. Dashboard ✅ (Phase 9)
+
+`apps/web` is Next.js (App Router), TypeScript (strict) and Tailwind. It's functional by
+design, not decorative.
+
+- **Backend-for-frontend.** Route handlers do login, register and logout and keep the access
+  and refresh tokens in **httpOnly SameSite=Lax cookies** (refresh scoped to `/api`).
+  Browser code never handles a token.
+- **Proxy.** `/api/sf/<path>` → API `/api/v1/<path>`:
+  - attaches the bearer token;
+  - on a 401, rotates the refresh token once and retries;
+  - **requires `x-sf-csrf: 1` on mutating methods**;
+  - rejects path segments outside `[A-Za-z0-9._-]`.
+- **Gating.** A server layout redirects to `/login` without a session cookie. The API is still
+  the authority on every request.
+- **Pages:** org picker, overview, workflows (immutable versions, deploy/rollback, run),
+  execution timeline (step attempts, agent decision trace, citations, LLM cost, cancel),
+  **approvals inbox** (approve / reject / edit args), knowledge (knowledge bases, documents
+  with ingestion status, search playground), tools and org policy, usage and budget, audit log.
+
+## 13. Cross-cutting decisions
 
 - **Time:** all timestamps are timezone-aware UTC. A `UTCDateTime` column type rejects naive values.
 - **IDs:** UUIDv4 everywhere. Nothing sequential is exposed.
