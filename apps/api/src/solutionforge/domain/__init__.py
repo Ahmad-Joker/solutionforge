@@ -2,6 +2,14 @@
 
 from solutionforge.domain.approvals import Approval, ApprovalStatus
 from solutionforge.domain.audit import AuditEvent, AuditEventType
+from solutionforge.domain.evaluation import (
+    DeploymentDecision,
+    EvaluationCase,
+    EvaluationDataset,
+    EvaluationResult,
+    EvaluationRun,
+    RunStatus,
+)
 from solutionforge.domain.identity import Invitation, Membership, Organization, RefreshToken, User
 from solutionforge.domain.knowledge import Chunk, Document, DocumentStatus, KnowledgeBase
 from solutionforge.domain.policy import OrgPolicy
@@ -24,8 +32,13 @@ __all__ = [
     "AuditEvent",
     "AuditEventType",
     "Chunk",
+    "DeploymentDecision",
     "Document",
     "DocumentStatus",
+    "EvaluationCase",
+    "EvaluationDataset",
+    "EvaluationResult",
+    "EvaluationRun",
     "Execution",
     "ExecutionStatus",
     "ExecutionStep",
@@ -36,6 +49,7 @@ __all__ = [
     "OrgPolicy",
     "Organization",
     "RefreshToken",
+    "RunStatus",
     "SimCustomer",
     "SimMessage",
     "SimOrder",

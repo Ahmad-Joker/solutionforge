@@ -64,6 +64,12 @@ class AuditEventType(StrEnum):
     APPROVAL_EXPIRED = "approval.expired"
     APPROVAL_CANCELLED = "approval.cancelled"
 
+    EVAL_DATASET_CREATED = "evaluation.dataset_created"
+    EVAL_RUN_STARTED = "evaluation.run_started"
+    GATE_POLICY_UPDATED = "workflow.gate_policy_updated"
+    DEPLOYMENT_BLOCKED = "workflow.deployment_blocked"
+    DEPLOYMENT_GATE_OVERRIDDEN = "workflow.deployment_gate_overridden"
+
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_events"

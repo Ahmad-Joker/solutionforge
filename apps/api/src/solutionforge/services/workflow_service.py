@@ -209,16 +209,31 @@ async def deploy(
     version: int,
     reason: str,
     request: RequestMeta,
+    override_reason: str | None = None,
 ) -> WorkflowDeployment:
     """Make ``version`` the production version. Deploying an older version is a rollback.
 
-    Phase 11 inserts the evaluation quality gate here.
+    If the workflow has a deployment gate, the version must pass it (see
+    ``eval_service.enforce_gate``); rollbacks are gated too — "known good" is
+    re-proven by evaluation, not assumed.
     """
+    from solutionforge.services.eval_service import enforce_gate  # import cycle
+
     ensure(ctx, Permission.WORKFLOW_DEPLOY)
+    wf = await _workflow(session, ctx, workflow_id)
     target = await get_version(session, ctx, workflow_id, version)
     current = await _deployed_version(session, ctx, workflow_id)
     if current is not None and current.id == target.id:
         raise Conflict(f"Version {version} is already deployed")
+    decision = await enforce_gate(
+        session,
+        ctx,
+        workflow=wf,
+        target=target,
+        current=current,
+        override_reason=override_reason,
+        request=request,
+    )
     dep = WorkflowDeployment(
         organization_id=ctx.organization_id,
         workflow_id=workflow_id,
@@ -240,6 +255,7 @@ async def deploy(
             "version": version,
             "previous_version": current.version if current else None,
             "reason": reason,
+            "gate_decision_id": str(decision.id) if decision else None,
         },
     )
     await session.commit()
@@ -321,19 +337,14 @@ async def create_execution(
     compiled = compile_definition(target.definition, registry)
     validate_input(compiled.definition, input)
 
-    now = utcnow()
-    ex = Execution(
+    ex = new_execution(
         organization_id=ctx.organization_id,
         workflow_id=workflow_id,
-        workflow_version_id=target.id,
-        status=ExecutionStatus.QUEUED,
-        idempotency_key=idempotency_key,
-        created_by_user_id=ctx.user_id,
+        version=target,
+        start_step=compiled.definition.start,
         input=input,
-        state={},
-        step_outputs={},
-        current_step=compiled.definition.start,
-        run_after=now,
+        created_by_user_id=ctx.user_id,
+        idempotency_key=idempotency_key,
     )
     session.add(ex)
     try:
@@ -358,6 +369,36 @@ async def create_execution(
     )
     await session.commit()
     return ex, True
+
+
+def new_execution(
+    *,
+    organization_id: uuid.UUID,
+    workflow_id: uuid.UUID,
+    version: WorkflowVersion,
+    start_step: str,
+    input: dict[str, Any],
+    created_by_user_id: uuid.UUID | None,
+    idempotency_key: str | None = None,
+    evaluation_run_id: uuid.UUID | None = None,
+    evaluation_case_id: uuid.UUID | None = None,
+) -> Execution:
+    """A queued execution of a pinned version. Callers validate input and authorize."""
+    return Execution(
+        organization_id=organization_id,
+        workflow_id=workflow_id,
+        workflow_version_id=version.id,
+        status=ExecutionStatus.QUEUED,
+        idempotency_key=idempotency_key,
+        created_by_user_id=created_by_user_id,
+        input=input,
+        state={},
+        step_outputs={},
+        current_step=start_step,
+        run_after=utcnow(),
+        evaluation_run_id=evaluation_run_id,
+        evaluation_case_id=evaluation_case_id,
+    )
 
 
 async def _by_idempotency_key(

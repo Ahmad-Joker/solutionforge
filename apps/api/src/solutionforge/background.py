@@ -1,7 +1,7 @@
 """The background job loops, shared by the worker process and the API's embedded mode.
 
-Three durable loops, all lease-based and safe to run in many processes at once:
-workflow executions, document ingestion, and approval expiry.
+Four durable loops, all lease-based and safe to run in many processes at once:
+workflow executions, document ingestion, approval expiry, and evaluation-run scoring.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from solutionforge.core.logging import get_logger
 from solutionforge.retrieval.ingest import IngestionWorker
 from solutionforge.retrieval.search import Retriever
 from solutionforge.services.approval_service import expire_due
+from solutionforge.services.eval_service import finalize_due_runs
 from solutionforge.workflows.engine import Engine
 from solutionforge.workflows.registry import StepRegistry
 from solutionforge.workflows.worker import Worker
@@ -41,6 +42,7 @@ async def run_background(
         worker.run(stop),
         ingestion.run(stop, poll_interval=settings.worker_poll_interval_seconds),
         _expire_approvals(stop, sessionmaker, registry),
+        _finalize_evaluations(stop, sessionmaker),
     )
 
 
@@ -55,3 +57,16 @@ async def _expire_approvals(
             log.exception("approval_expiry_failed")
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(stop.wait(), timeout=30)
+
+
+async def _finalize_evaluations(
+    stop: asyncio.Event, sessionmaker: async_sessionmaker[AsyncSession]
+) -> None:
+    """Every 3 s: score evaluation runs whose case executions have settled."""
+    while not stop.is_set():
+        try:
+            await finalize_due_runs(sessionmaker)
+        except Exception:
+            log.exception("evaluation_finalize_failed")
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=3)

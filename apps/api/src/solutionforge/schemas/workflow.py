@@ -52,6 +52,8 @@ class VersionOut(BaseModel):
 class DeployRequest(StrictModel):
     version: int = Field(ge=1)
     reason: str = Field(default="", max_length=2000)
+    # Break-glass: an OWNER may deploy past a failed quality gate with a written reason.
+    override_gate_reason: str | None = Field(default=None, min_length=10, max_length=2000)
 
 
 class DeploymentOut(BaseModel):

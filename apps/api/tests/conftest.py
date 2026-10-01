@@ -27,6 +27,8 @@ from solutionforge.db.base import Base
 from solutionforge.llm.providers.mock import MockProvider
 from solutionforge.llm.service import LLMService, RetryConfig
 from solutionforge.main import create_app
+from solutionforge.retrieval.embeddings import HashingEmbedder
+from solutionforge.retrieval.ingest import IngestionWorker
 from solutionforge.tools.catalog import ToolCatalog
 from solutionforge.tools.executor import ToolExecutor
 from solutionforge.workflows.engine import Engine
@@ -164,3 +166,10 @@ def mock_llm(app: FastAPI) -> MockProvider:
     provider = service.providers["mock"]
     assert isinstance(provider, MockProvider)
     return provider
+
+
+@pytest.fixture
+def ingestor(app: FastAPI) -> IngestionWorker:
+    return IngestionWorker(
+        app.state.sessionmaker, HashingEmbedder(), worker_id="ing-1", backoff_base_seconds=0
+    )

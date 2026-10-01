@@ -2,7 +2,7 @@
 
 **A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
 
-> **Project status: Phases 0–9 of 19 complete.** This README only describes what exists and is
+> **Project status: Phases 0–11 of 19 complete.** This README only describes what exists and is
 > tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
 > [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
 > once they exist and are measured.
@@ -23,6 +23,7 @@
 | **Tools** | Typed tool contracts with **risk levels** and MCP-compatible descriptors. One executor validates, **policy-gates** (external and high-risk actions blocked pending approval), deduplicates, times out, retries safely, and records every call. Simulated CRM, order, ticketing, email and payment systems back it. **Exactly-once side effects** across retries and worker crashes (tested). **Encrypted, write-only connector credentials** |
 | **Agents** | A bounded `agent` step. The model picks allowlisted tools through a **schema-constrained action protocol**. Every call goes through the same executor and policy gate, with turn, tool-call, repeat and budget caps and a structured decision trace. Tested against a model that **obeys a prompt injection**: the refund and the email are still blocked |
 | **RAG** | Durable ingestion jobs (dead letter + retry) and structure-aware chunking with exact offsets. **pgvector HNSW + Postgres full-text + hybrid RRF** with metadata filters and a measured relevance floor. A `grounded_answer` step whose **citations are verified in code** to map to retrieved chunks. Measured recall@k / MRR in [docs/RETRIEVAL.md](docs/RETRIEVAL.md) |
+| **Evaluation & deploy gate** | Datasets of cases run against a **pinned version through the real engine**. Each case is scored in code on status, output subset/schema, expected and forbidden tools, verified citations, step and cost limits, and lexical groundedness; the run aggregates pass rate, tool accuracy, schema validity, citation accuracy, p50/p95 latency, cost per case and security cases. Versions are compared case by case. A per-workflow **quality gate inside the deploy path** blocks regressions (409 + stored decision); OWNER break-glass with an audited reason. See [docs/EVALUATION.md](docs/EVALUATION.md) |
 | **Dashboard** | Next.js + TypeScript (strict) + Tailwind, with a **BFF that keeps tokens in httpOnly cookies** (CSRF header, refresh rotation). Covers workflows and deployments, execution timelines with agent traces and citations, the **approvals inbox**, knowledge search, tools and policy, usage and budget, and the audit log |
 | **API quality** | Versioned `/api/v1`, OpenAPI at `/docs`, uniform error envelope, request-ID propagation, structured JSON logs, liveness and readiness probes |
 | **Engineering** | Alembic migrations with a drift test; strict mypy; ruff (incl. bandit rules); CI on real PostgreSQL; Dockerfile (non-root) + compose stack |
@@ -97,11 +98,12 @@ Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
 
 ## Roadmap
 
-Evaluation and quality-gated deployment → observability → cloud deployment → security and load
+Observability → cloud deployment → security and load
 testing → three customer case studies. Details and acceptance criteria are in
 [docs/BACKLOG.md](docs/BACKLOG.md).
 
 ## Docs
 
 [ARCHITECTURE](ARCHITECTURE.md) · [SECURITY](SECURITY.md) (threat model) · [API](API.md) ·
-[DEPLOYMENT](DEPLOYMENT.md) · [CONTRIBUTING](CONTRIBUTING.md) · [ADRs](docs/adr/) · [Backlog](docs/BACKLOG.md)
+[DEPLOYMENT](DEPLOYMENT.md) · [EVALUATION](docs/EVALUATION.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
+[CONTRIBUTING](CONTRIBUTING.md) · [ADRs](docs/adr/) · [Backlog](docs/BACKLOG.md)

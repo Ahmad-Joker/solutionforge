@@ -149,3 +149,56 @@ export interface AuditEvent {
   resource_id: string | null;
   metadata: Record<string, unknown>;
 }
+
+export interface EvalDataset {
+  id: string;
+  workflow_id: string;
+  name: string;
+  description: string;
+  created_at: string;
+}
+
+export interface EvalCase {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+  expectations: Record<string, unknown>;
+  tags: string[];
+}
+
+export type EvalMetrics = Record<string, number | string | null>;
+
+export interface EvalRun {
+  id: string;
+  dataset_id: string;
+  workflow_id: string;
+  version: number;
+  status: "running" | "completed";
+  metrics: EvalMetrics | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface EvalComparison {
+  runs: { id: string; version: number; status: string; metrics: EvalMetrics | null }[];
+  cases: Record<string, Record<string, boolean>>;
+}
+
+export interface GateCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface DeploymentDecision {
+  id: string;
+  version: number;
+  candidate_run_id: string | null;
+  baseline_run_id: string | null;
+  passed: boolean;
+  overridden: boolean;
+  override_reason: string | null;
+  checks: GateCheck[];
+  decided_by_user_id: string | null;
+  created_at: string;
+}

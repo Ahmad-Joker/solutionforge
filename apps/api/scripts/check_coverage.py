@@ -18,6 +18,8 @@ CRITICAL = (
     "services/auth_service.py",
     "services/org_service.py",
     "services/approval_service.py",
+    "services/eval_service.py",
+    "evaluation/",
     "tools/policy.py",
     "tools/executor.py",
     "workflows/engine.py",

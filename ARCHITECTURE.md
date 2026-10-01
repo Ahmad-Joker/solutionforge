@@ -482,7 +482,32 @@ design, not decorative.
   **approvals inbox** (approve / reject / edit args), knowledge (knowledge bases, documents
   with ingestion status, search playground), tools and org policy, usage and budget, audit log.
 
-## 13. Cross-cutting decisions
+## 13. Evaluation and deployment gate ✅ (Phase 11)
+
+```mermaid
+flowchart LR
+  DS[Dataset + cases] -->|start run vN| Q[one execution per case<br/>pinned version, tagged run/case]
+  Q --> W[Worker / real engine<br/>policy, approvals, budgets, metering]
+  W --> F[Finalizer loop<br/>all settled or deadline]
+  F -->|score in code| R[Results + run metrics]
+  F -->|cancel waiting + approvals| W
+  R --> G{deploy vN:<br/>gate policy}
+  G -->|pass / OWNER override| D[WorkflowDeployment]
+  G -->|fail| B[409 + DeploymentDecision]
+```
+
+- **One engine.** Cases are ordinary executions with `evaluation_run_id` and
+  `evaluation_case_id`, so scores reflect production behaviour, including policy blocks.
+- **Scores come from records:** execution status and output, `tool_calls` (attempted names),
+  `llm_usage` (cost and tokens), and `retrieve` / `grounded_answer` step outputs (chunk IDs
+  and citations). They're pure functions in `evaluation/scorers.py`.
+- **Gate** (`evaluation/gate.py`, enforced in `workflow_service.deploy` via
+  `eval_service.enforce_gate`): candidate = the latest completed run of the target version;
+  baseline = the latest completed run of the current production version. Every attempt is a
+  `DeploymentDecision` row. A block is committed before the 409. See
+  [docs/EVALUATION.md](docs/EVALUATION.md) and ADR-0012.
+
+## 14. Cross-cutting decisions
 
 - **Time:** all timestamps are timezone-aware UTC. A `UTCDateTime` column type rejects naive values.
 - **IDs:** UUIDv4 everywhere. Nothing sequential is exposed.

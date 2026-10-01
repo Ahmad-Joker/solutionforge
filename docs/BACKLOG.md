@@ -154,10 +154,29 @@ Original plan:
 Auth via a BFF with httpOnly cookies; orgs and members; workflow editor (JSON + form);
 execution timeline; approvals inbox; eval comparison view.
 
-## Phase 10 — Testing hardening
-Playwright E2E; property tests for the policy engine; coverage gates on `security/` and `services/`.
+## Phase 10 — Testing hardening ✅
 
-## Phase 11 — Evaluation framework
+- [x] Parallel suite (pytest-xdist); fast Argon2 profile allowed only in `SF_ENVIRONMENT=test`
+- [x] Hypothesis property tests (expressions, policy, chunking)
+- [x] Coverage gates: ≥90% overall and ≥90% per critical module (`scripts/check_coverage.py`)
+- [x] Playwright E2E through the real BFF and API with an embedded worker (CI job)
+- [ ] PostgreSQL-only paths executed locally (CI only so far)
+
+## Phase 11 — Evaluation framework ✅
+
+- [x] Datasets, cases (expectations validated, unknown keys rejected), runs, per-case results (migration 0008)
+- [x] Runs execute pinned versions through the real engine; invalid case inputs fail without running
+- [x] Deterministic scorers: status, output subset, JSON Schema, expected/forbidden tools, citations verified against retrieved chunks, step/cost limits, lexical groundedness
+- [x] Aggregates: pass rate, tool selection, schema validity, citation accuracy, groundedness (lexical), p50/p95 latency (nearest rank), cost/case, steps, error rate, security cases; unmeasured → null
+- [x] Background finalizer with deadline; waiting/queued executions and their approvals are cancelled after scoring
+- [x] Multi-run comparison with a per-case pass matrix
+- [x] Per-workflow gate policy enforced inside `deploy()`; every attempt stored as a `DeploymentDecision`; 409 on block; OWNER-only audited override
+- [x] Dashboard evaluation page (datasets, cases, runs, comparison, gate, decisions) + E2E
+- [ ] Dataset versioning/snapshots so baseline and candidate are scored on the same case set
+- [ ] "N consecutive passing runs" option against cherry-picking non-deterministic runs
+- [ ] Optional judge-based semantic groundedness as a separately labelled metric
+
+Original plan:
 Datasets and cases (expected output, expected and forbidden tools, expected citations);
 scorers (schema validity, tool accuracy, citation accuracy, groundedness via judge + rules,
 latency, cost, steps); v1 vs v2 vs v3 comparison; **deployment gate** that stores the decision

@@ -67,6 +67,8 @@ class Workflow(UUIDPrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # evaluation.gate.GatePolicy; when set, deploys must pass it.
+    deployment_gate: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
 
 
 class WorkflowVersion(UUIDPrimaryKeyMixin, TenantScopedMixin, Base):
@@ -128,6 +130,9 @@ class Execution(UUIDPrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
         _str_enum(ExecutionStatus, "execution_status"), nullable=False
     )
     idempotency_key: Mapped[str | None] = mapped_column(sa.String(128), nullable=True)
+    # Set for executions created by an evaluation run (excluded from nothing; traceable).
+    evaluation_run_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True, index=True)
+    evaluation_case_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

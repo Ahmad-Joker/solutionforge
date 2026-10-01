@@ -35,13 +35,6 @@ class FailingEmbedder:
         raise RuntimeError("embedding service unavailable")
 
 
-@pytest.fixture
-def ingestor(app: FastAPI) -> IngestionWorker:
-    return IngestionWorker(
-        app.state.sessionmaker, HashingEmbedder(), worker_id="ing-1", backoff_base_seconds=0
-    )
-
-
 async def kb_with_corpus(
     api: Api,
     client: AsyncClient,

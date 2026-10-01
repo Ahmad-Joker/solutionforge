@@ -140,6 +140,7 @@ async def deploy(
         version=body.version,
         reason=body.reason,
         request=meta,
+        override_reason=body.override_gate_reason,
     )
     return DeploymentOut(
         id=dep.id,

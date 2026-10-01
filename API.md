@@ -43,7 +43,7 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | GET | `/orgs/{org_id}/workflows[/{id}]` | `workflow:read` | includes `latest_version`, `deployed_version` |
 | POST | `/orgs/{org_id}/workflows/{id}/versions` | `workflow:write` | body `{definition, changelog}`; 422 `invalid_workflow_definition` lists every error |
 | GET | `/orgs/{org_id}/workflows/{id}/versions[/{n}]` | `workflow:read` | versions are immutable (no PUT/PATCH/DELETE) |
-| POST | `/orgs/{org_id}/workflows/{id}/deployments` | `workflow:deploy` | `{version, reason}`; deploying an older version = rollback |
+| POST | `/orgs/{org_id}/workflows/{id}/deployments` | `workflow:deploy` | `{version, reason, override_gate_reason?}`; deploying an older version = rollback; 409 `deployment_blocked` if the workflow gate fails (override: OWNER only) |
 | GET | `/orgs/{org_id}/workflows/{id}/deployments` | `workflow:read` | newest first |
 | POST | `/orgs/{org_id}/workflows/{id}/executions` | `workflow:execute` (+`workflow:write` for non-deployed `version`) | 202 queued; with `idempotency_key`, a repeat returns 200 with the original |
 | GET | `/orgs/{org_id}/executions` | `workflow:read` | filters: `workflow_id`, `status`, `before`, `limit` |
@@ -72,6 +72,15 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | GET | `/orgs/{org_id}/approvals` | `approval:read` | `status`, `execution_id`, `before`, `limit` |
 | GET | `/orgs/{org_id}/approvals/{id}` | `approval:read` | |
 | POST | `/orgs/{org_id}/approvals/{id}/decision` | `approval:decide` + the request's `required_permission`; four-eyes for high risk | `{decision: approve\|reject, args?, comment?}` |
+| POST | `/orgs/{org_id}/evaluation/datasets` | `workflow:write` | `{workflow_id, name, description}` |
+| GET | `/orgs/{org_id}/evaluation/datasets` | `evaluation:read` | `workflow_id` filter |
+| POST/GET | `/orgs/{org_id}/evaluation/datasets/{id}/cases` | `workflow:write` / `evaluation:read` | `{name, input, expectations, tags}`; see [docs/EVALUATION.md](docs/EVALUATION.md) |
+| POST | `/orgs/{org_id}/evaluation/datasets/{id}/runs` | `evaluation:run` (+ `workflow:write` for non-production versions) | `{version}` → 202 `running` |
+| GET | `/orgs/{org_id}/evaluation/datasets/{id}/runs` | `evaluation:read` | |
+| GET | `/orgs/{org_id}/evaluation/runs/{id}` | `evaluation:read` | metrics + per-case results |
+| GET | `/orgs/{org_id}/evaluation/compare?run_id=…&run_id=…` | `evaluation:read` | up to 5 runs; metrics + per-case pass matrix |
+| GET/PUT/DELETE | `/orgs/{org_id}/workflows/{id}/gate` | read / `workflow:deploy` | gate policy; audited |
+| GET | `/orgs/{org_id}/workflows/{id}/deployment-decisions` | `workflow:read` | every gated deploy attempt |
 | GET | `/healthz`, `/readyz` | public | liveness / readiness (DB) |
 
 ## Walkthrough

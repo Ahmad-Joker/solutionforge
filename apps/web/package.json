@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "postbuild": "node -e \"require('fs').cpSync('.next/static','.next/standalone/.next/static',{recursive:true})\"",
     "start": "node .next/standalone/server.js",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test"

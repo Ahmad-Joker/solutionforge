@@ -12,6 +12,7 @@ const NAV = [
   ["/workflows", "Workflows"],
   ["/executions", "Executions"],
   ["/approvals", "Approvals"],
+  ["/evaluation", "Evaluation"],
   ["/knowledge", "Knowledge"],
   ["/tools", "Tools & policy"],
   ["/usage", "Usage & budget"],
