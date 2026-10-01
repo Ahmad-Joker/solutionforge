@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from solutionforge.core.errors import DomainError
 from solutionforge.core.logging import get_logger
+from solutionforge.tools.spec import ToolError, ToolNotFound
 
 log = get_logger(__name__)
 
@@ -42,6 +43,11 @@ def install_error_handlers(app: FastAPI) -> None:
         if exc.status_code >= 500:
             log.error("domain_error", code=exc.code, message=exc.message)
         return _envelope(request, exc.status_code, exc.code, exc.message, exc.details)
+
+    @app.exception_handler(ToolError)
+    async def _tool(request: Request, exc: ToolError) -> JSONResponse:
+        status = 404 if isinstance(exc, ToolNotFound) else 422
+        return _envelope(request, status, exc.code, exc.message, exc.details)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:

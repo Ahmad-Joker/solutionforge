@@ -81,12 +81,14 @@ class StepContext:
     deadline: float  # time.monotonic() value; the engine also enforces it
     cost_limit_micro_usd: int | None = None  # from the definition's limits.max_cost_usd
     llm_token_limit: int | None = None  # from limits.max_llm_tokens
+    visit: int = 0  # execution.visit_seq at the time this step visit started
 
     @property
     def idempotency_key(self) -> str:
-        """Stable across retries and crash-recovery of the *same* step visit, so external
-        side effects (email, ticket creation) can be deduplicated by the receiver."""
-        return f"{self.execution_id}:{self.step_id}"
+        """Stable across retries and crash-recovery of the *same* step visit (so a side
+        effect such as creating a ticket happens once), but different for each visit of a
+        step inside a loop (so the loop's second iteration really runs)."""
+        return f"{self.execution_id}:{self.step_id}:{self.visit}"
 
     def remaining_seconds(self) -> float:
         return max(0.0, self.deadline - time.monotonic())

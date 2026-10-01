@@ -21,6 +21,7 @@ dependencies = [
     "structlog>=24.4",
     "anthropic>=1.11",
     "jsonschema>=4.23",
+    "cryptography>=43",
 ]
 
 [project.optional-dependencies]

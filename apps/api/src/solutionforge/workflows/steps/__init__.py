@@ -9,12 +9,19 @@ from solutionforge.workflows.steps.builtin import builtin_handlers
 
 if TYPE_CHECKING:
     from solutionforge.llm.service import LLMService
+    from solutionforge.tools.executor import ToolExecutor
 
 
-def default_registry(llm_service: LLMService | None = None) -> StepRegistry:
+def default_registry(
+    llm_service: LLMService | None = None, tool_executor: ToolExecutor | None = None
+) -> StepRegistry:
     registry = StepRegistry(builtin_handlers())
     if llm_service is not None:
         from solutionforge.workflows.steps.llm import LLMStep
 
         registry.register(LLMStep(llm_service))
+    if tool_executor is not None:
+        from solutionforge.workflows.steps.tool import ToolStep
+
+        registry.register(ToolStep(tool_executor))
     return registry

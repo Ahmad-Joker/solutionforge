@@ -476,6 +476,7 @@ async def resume_execution(
         attempt=ex.current_attempt,
         scope=snap.handler_scope(),
         deadline=time.monotonic() + step.spec.timeout_seconds,
+        visit=ex.visit_seq,
     )
     now = utcnow()
     try:

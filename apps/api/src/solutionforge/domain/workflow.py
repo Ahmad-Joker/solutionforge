@@ -142,6 +142,9 @@ class Execution(UUIDPrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
 
     current_step: Mapped[str | None] = mapped_column(sa.String(64), nullable=True)
     current_attempt: Mapped[int] = mapped_column(nullable=False, default=0)
+    # Incremented every time the execution enters a step. Part of the idempotency key, so
+    # retries of one visit share a key but a loop's second visit gets a fresh one.
+    visit_seq: Mapped[int] = mapped_column(nullable=False, default=0, server_default="0")
     steps_used: Mapped[int] = mapped_column(nullable=False, default=0)
     active_ms: Mapped[int] = mapped_column(nullable=False, default=0)
     event_seq: Mapped[int] = mapped_column(nullable=False, default=0)

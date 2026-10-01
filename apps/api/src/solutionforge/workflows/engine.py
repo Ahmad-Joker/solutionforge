@@ -332,6 +332,7 @@ class Engine:
                 deadline=time.monotonic() + step.spec.timeout_seconds,
                 cost_limit_micro_usd=limits.max_cost_micro_usd,
                 llm_token_limit=limits.max_llm_tokens,
+                visit=ex.visit_seq,
             )
             return compiled, step, ctx, snap
 

@@ -53,6 +53,11 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | GET | `/orgs/{org_id}/usage/records` | `usage:read` | every provider attempt; `execution_id`, `before`, `limit` ≤ 500 |
 | GET | `/orgs/{org_id}/budget` | `usage:read` | `null` = unlimited |
 | PUT | `/orgs/{org_id}/budget` | `org:manage` | `{daily_limit_usd, monthly_limit_usd, per_execution_limit_usd}` (decimal strings, ≤ 6 dp); audited |
+| GET | `/orgs/{org_id}/tools` | `tool:read` | catalog with risk, permission, MCP descriptor, installation (`has_credentials` only) |
+| PUT | `/orgs/{org_id}/tools/{name}` | `tool:manage` | `{enabled, auto_approve_low_risk, config, credentials}`; credentials: omit = keep, `null` = clear |
+| GET | `/orgs/{org_id}/tool-calls` | `tool:read` | call trail; filters `execution_id`, `tool_name`, `before`, `limit` |
+| POST | `/orgs/{org_id}/demo-data` | `org:manage` | seed simulated systems and install simulated tools (idempotent) |
+| GET | `/orgs/{org_id}/simulated/activity` | `tool:read` | tickets, emails, refunds created by tools |
 | GET | `/healthz`, `/readyz` | public | liveness / readiness (DB) |
 
 ## Walkthrough

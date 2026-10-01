@@ -12,11 +12,12 @@ from solutionforge import __version__
 from solutionforge.api import health
 from solutionforge.api.errors import install_error_handlers
 from solutionforge.api.middleware import RequestContextMiddleware
-from solutionforge.api.v1 import audit, auth, orgs, usage, workflows
+from solutionforge.api.v1 import audit, auth, orgs, tools, usage, workflows
 from solutionforge.core.config import Settings, get_settings
 from solutionforge.core.logging import configure_logging
 from solutionforge.db.session import build_engine, build_sessionmaker
 from solutionforge.llm.factory import build_llm_service
+from solutionforge.tools.factory import build_tool_executor
 from solutionforge.workflows.steps import default_registry
 
 
@@ -44,7 +45,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.sessionmaker = build_sessionmaker(engine)
     app.state.llm_service = build_llm_service(settings, app.state.sessionmaker)
-    app.state.step_registry = default_registry(app.state.llm_service)
+    app.state.tool_executor = build_tool_executor(settings, app.state.sessionmaker)
+    app.state.step_registry = default_registry(app.state.llm_service, app.state.tool_executor)
 
     install_error_handlers(app)
     app.add_middleware(
@@ -63,6 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     v1.include_router(audit.router)
     v1.include_router(workflows.router)
     v1.include_router(usage.router)
+    v1.include_router(tools.router)
     app.include_router(v1)
     app.include_router(health.router)
     return app

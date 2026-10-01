@@ -31,11 +31,11 @@ actions, audit history, and model spend.
 | T9 | Hash-flood DoS | Very large password input | 128-char cap in the schema, enforced before hashing | ✅ |
 | T10 | Audit tampering | App bug or compromised DB writer | Insert-only service API; PG trigger rejects UPDATE/DELETE | ✅ |
 | T11 | Secret leakage via logs | Tokens and passwords in metadata or errors | Metadata redaction; validation errors drop `input`; opaque 500s; request-ID header sanitized | ✅ |
-| T12 | Prompt injection → unauthorized action | Malicious user input or retrieved document tells the agent to call a tool | Policy engine is outside the model; approvals for external actions; tool argument schema validation | ⬜ Phase 7/8/16 |
+| T12 | Prompt injection → unauthorized action | Malicious user input or retrieved document tells the agent to call a tool | Tools must be installed per tenant; arguments are schema-validated (extra fields rejected, strings bounded, single-line subjects); a deterministic risk gate blocks external and high-risk actions | 🟡 (role-aware policy P7, approvals P8, adversarial suite P16) |
 | T13 | Invented citations | Model fabricates sources | Citations must map to retrieved chunk IDs; verified in code | ⬜ Phase 6 |
 | T14 | PII exfiltration via tools/LLM | Agent asked to dump customer data | Tool output filtering, per-tool data scopes, adversarial eval set | ⬜ Phase 16 |
 | T15 | Runaway cost / infinite loops | Agent loops, huge contexts | Step/time budgets (P2); per-call worst-case pre-check against org daily/monthly, per-execution cost and token limits (P3); a budget stop can't be bypassed via `on_error` | ✅ (agent loop bounds: P5) |
-| T16 | Connector credential theft | DB read access | Envelope-encrypted credentials, never returned by the API | ⬜ Phase 4 |
+| T16 | Connector credential theft | DB read access, API, logs | Fernet-encrypted at rest with a rotatable key ring (`SF_CREDENTIALS_KEYS`, required in prod); write-only API (`has_credentials` flag only); audit records field names, never values | ✅ |
 | T18 | Code execution via workflow definitions | A malicious admin or a compromised account submits a definition | No eval: a closed expression language (references, templates, 11 predicates, no calls or regex); step types come from a server-side registry; configs are schema-validated | ✅ |
 | T19 | Split-brain workers double-applying progress | GC pause or partition past the lease | Fenced writes (`lease_owner = me`), per-step leases, unique `(execution_id, seq)`; side-effect steps receive an idempotency key | ✅ |
 | T20 | Execution history tampering | Rewriting step records after the fact | Engine only inserts; PG trigger rejects UPDATE on `execution_steps` | ✅ |
@@ -43,6 +43,9 @@ actions, audit history, and model spend.
 | T22 | LLM provider key leakage | Logs, API responses, errors | `SecretStr` settings (masked in repr/dumps); the key is only passed to the SDK client; provider error messages are replaced with our own | ✅ |
 | T23 | Customer data copied into logs and ledgers | Prompts in logs or usage rows | Structured logs carry metadata only (model, tokens, cost, latency); `usage_records` has no content columns (tested) | ✅ |
 | T24 | Unmetered or unbounded spend via config | Unknown model, huge `max_tokens` | Unpriced models are rejected at compile time; `max_tokens` ≤ 64k; SDK retries disabled so every billed attempt is recorded | ✅ |
+| T25 | Tool argument injection | Header injection, SQL-ish payloads, unexpected fields | Pydantic models with patterns and `extra="forbid"`; parameterized queries only; a property test checks every string is bounded | ✅ |
+| T26 | Duplicate side effects | Retries, crash recovery, concurrent calls | Per-visit idempotency keys, executor replay ledger, connector-level unique keys; non-deduplicating writes are never retried | ✅ |
+| T27 | Cross-tenant data through tools | Tool reads another org's records, replays another org's key | Tools receive only their org ID and every query filters on it; ledger keys are scoped per org (tested) | ✅ |
 | T17 | Supply-chain vulnerabilities | Vulnerable dependencies | `pip-audit` in CI; pinned base images | 🟡 |
 
 ## Known gaps (tracked in the backlog)

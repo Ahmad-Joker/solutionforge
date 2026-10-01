@@ -67,7 +67,20 @@ Acceptance criteria:
 - [ ] Real Anthropic call (needs an API key; the adapter is tested against recorded API shapes only)
 - [ ] OpenAI-compatible adapter (deferred; the abstraction is proven with two providers)
 
-## Phase 4 — Tool interface + simulated tools
+## Phase 4 — Tool interface + simulated tools ✅
+
+- [x] `ToolSpec` (typed I/O, risk level, permission, timeout, retries, idempotency, credentials, config keys); MCP `tools/list` descriptors
+- [x] ToolExecutor: catalog → installation → validation → policy gate → replay ledger → timeout/retry → output validation → record + audit
+- [x] Simulated CRM, orders, ticketing, email (draft/send), payments (refund); deterministic demo seed
+- [x] Per-tenant installations; Fernet-encrypted, rotatable, write-only credentials (audited by field name)
+- [x] `tool` step type with compile-time tool/argument validation
+- [x] Per-visit idempotency keys (`visit_seq`): crash after a side effect doesn't duplicate; loops get fresh keys (tested)
+- [x] External/high-risk tools blocked pending the approval flow (P8); tenant can require approval for low-risk writes
+- [x] Tenant isolation, RBAC and input-hardening tests
+- [ ] Calendar connector (deferred; not needed by the three scenarios)
+- [ ] Serving the catalog as an actual MCP server, or consuming external MCP servers (descriptors are ready)
+
+Original plan:
 `Tool` spec (name, description, input/output schema, permission, risk level, timeout, retry,
 idempotency). Simulated CRM, ticketing, email outbox, order DB, calendar. These are real
 Postgres-backed services with seeded data, not mocks. Encrypted connector credentials.
@@ -132,5 +145,9 @@ queue depth), Grafana dashboards as code.
 - The circuit breaker is per process; share its state via Redis when running many workers.
 - Verify the Anthropic price table against the pricing page before billing customers on it.
 - Streaming for large `max_tokens` (the SDK recommends streaming for long outputs).
+- Tool authorization ignores *who* triggered the execution. Phase 7 adds the role check
+  (`required_permission`) for the execution's initiator.
+- Same-key concurrent tool calls can both reach the connector. Write connectors must enforce
+  the key; consider a lease on `tool_calls` rows instead.
 - Refresh-token reuse detection also fires on a benign client retry after a lost response.
   Consider a short grace window.

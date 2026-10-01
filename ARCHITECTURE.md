@@ -54,7 +54,7 @@ flowchart LR
     AUD[Audit log ✅]
     RBAC[RBAC matrix ✅]
     WF[Workflow definitions, versions, deployments ✅]
-    POL[Policy engine ⬜]
+    POL[Policy gate: risk × tenant installation ✅ / role-aware ⬜ P7]
     APR[Approvals ⬜]
     EVAL[Evaluation + deploy gates ⬜]
     KB[Knowledge bases / ingestion ⬜]
@@ -63,7 +63,7 @@ flowchart LR
   subgraph Runtime["Worker process ✅"]
     ENG[Workflow engine: durable state machine ✅]
     LLM[LLMService: providers, retry, fallback, breaker, metering, budgets ✅]
-    TOOLS[Tool registry + connectors ⬜]
+    TOOLS[Tool catalog + executor + simulated connectors ✅]
     RET[Retrieval: dense / BM25 / hybrid ⬜]
   end
 
@@ -122,7 +122,8 @@ erDiagram
 | User, Organization, Membership, Invitation, RefreshToken | ✅ | migration `0001` |
 | AuditEvent | ✅ | append-only; PG trigger rejects UPDATE/DELETE |
 | Workflow, WorkflowVersion, WorkflowDeployment, Execution, ExecutionStep | ✅ | migration `0002`. Versions are immutable. Deployments are append-only (rollback = new row). A PG trigger rejects UPDATE on execution_steps |
-| Tool, ToolPermission | ⬜ Phase 4/7 | risk level on every tool |
+| ToolInstallation, ToolCall | ✅ | migration `0004`. Per-tenant opt-in with encrypted credentials. The call trail is unique on `(org, tool, idempotency_key)` |
+| Sim* (customers, orders, tickets, messages, refunds) | ✅ | stand-ins for customer systems: real tenant-scoped tables behind the tool interface |
 | Approval | ⬜ Phase 8 | |
 | KnowledgeBase, Document, Chunk | ⬜ Phase 6 | `vector` column via pgvector |
 | EvaluationDataset/Case/Run, DeploymentDecision | ⬜ Phase 11 | |
@@ -184,7 +185,7 @@ caller's membership **before** any handler code runs. It never comes from a requ
 | Workflows | `POST/GET …/workflows`, `GET …/workflows/{id}`, `POST/GET …/workflows/{id}/versions`, `GET …/versions/{n}`, `POST/GET …/workflows/{id}/deployments` | ✅ |
 | Executions | `POST …/workflows/{id}/executions` (idempotency key), `GET …/executions` (filters), `GET …/executions/{id}` (+ steps), `POST …/executions/{id}/cancel`, `POST …/executions/{id}/resume` | ✅ |
 | Approvals | `GET …/approvals`, `POST …/approvals/{id}/decision` | ⬜ |
-| Tools | `GET/POST …/tools`, `PUT …/tools/{id}/policy` | ⬜ |
+| Tools | `GET …/tools` (with MCP descriptors), `PUT …/tools/{name}` (enable, policy, config, write-only credentials), `GET …/tool-calls`, `POST …/demo-data`, `GET …/simulated/activity` | ✅ |
 | Knowledge | `…/knowledge-bases`, `…/documents` (upload → async ingestion) | ⬜ |
 | Evaluation | `…/eval-datasets`, `…/eval-runs`, `…/deployments` (gate decisions) | ⬜ |
 | Usage & budgets | `GET …/usage/summary`, `GET …/usage/records`, `GET/PUT …/budget` | ✅ |
@@ -207,7 +208,7 @@ A **WorkflowVersion** is an immutable, validated graph of typed steps:
 | `fail` ✅ | terminate with a coded error | no |
 | `llm` ✅ | prompt template (+ optional JSON Schema) → text or validated JSON, via LLMService | no |
 | `retrieve` ⬜ P6 | query a knowledge base with metadata filters; returns chunks with IDs | no |
-| `tool` ⬜ P4/7 | propose a tool call → **policy engine** → execute / suspend / deny | yes (approval) |
+| `tool` ✅ | templated args → ToolExecutor (validate → policy → dedupe → execute → record) | P8 (approval) |
 | `agent` ⬜ P5 | bounded tool-use loop (max iterations), each call still policy-checked | yes |
 
 **Definitions** (`workflows/definition.py`) are compiled when a version is created. The
@@ -338,7 +339,42 @@ flowchart LR
   - Deterministic failures (invalid output after repairs, refusals) are not retryable, so
     they fail fast.
 
-## 8. Cross-cutting decisions
+## 8. Tools ✅ (Phase 4)
+
+A tool is a `ToolSpec` plus an async `execute`. The spec declares:
+
+- name and description;
+- Pydantic input and output models (`extra="forbid"`, length-bounded strings);
+- `risk_level` and `required_permission`;
+- timeout and `max_attempts`;
+- whether the tool is `idempotent` or `supports_idempotency_key`;
+- whether it `requires_credentials`, and which `config_keys` it accepts.
+
+`spec.mcp_descriptor()` emits the MCP `tools/list` shape (`inputSchema`, `outputSchema`,
+`annotations.readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`).
+
+| Risk | Example | Phase 4 gate |
+|---|---|---|
+| `read_only` | `crm.get_customer`, `orders.find_delayed` | allow |
+| `low_risk_write` | `ticketing.create_ticket`, `email.draft_message` | allow, or approval if the tenant turns off `auto_approve_low_risk` |
+| `external_action` | `email.send_message` | approval required (refused until P8 delivers approvals) |
+| `high_risk` | `payments.issue_refund` | privileged approval (`approval:decide_high_risk`) |
+
+**Exactly-once side effects, in three layers.**
+
+1. **The engine's key.** Every step visit gets
+   `idempotency_key = execution:step:visit_seq`. Retries and crash recovery of the same
+   visit reuse it; a loop's next visit gets a new one.
+2. **The executor's ledger.** A succeeded `tool_calls` row with that key is replayed, not
+   re-executed.
+3. **The connector.** Write connectors deduplicate on the key themselves (unique
+   constraints), which covers a crash *after* the side effect but *before* the result was
+   recorded. Tested: a ticket is created, the worker dies, another worker recovers, and there
+   is still exactly one ticket.
+
+Writes that can't deduplicate are never retried by the executor.
+
+## 9. Cross-cutting decisions
 
 - **Time:** all timestamps are timezone-aware UTC. A `UTCDateTime` column type rejects naive values.
 - **IDs:** UUIDv4 everywhere. Nothing sequential is exposed.

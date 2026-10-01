@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
-from solutionforge.domain.workflow import ExecutionStatus, StepStatus
+from solutionforge.domain.workflow import Execution, ExecutionStatus, StepStatus
 from solutionforge.workflows import expressions
 from solutionforge.workflows.definition import CompiledStep, CompiledWorkflow
 from solutionforge.workflows.registry import USE_DEFAULT, StepError, StepResult
@@ -147,6 +147,7 @@ def on_success(
         | {
             "current_step": nxt,
             "current_attempt": 0,
+            "visit_seq": Execution.visit_seq + 1,
             "status": continue_status,
             "run_after": now,
         },
@@ -220,6 +221,7 @@ def on_failure(
                 "step_outputs": outputs,
                 "current_step": spec.on_error,
                 "current_attempt": 0,
+                "visit_seq": Execution.visit_seq + 1,
                 "status": continue_status,
                 "run_after": now,
                 "waiting_on": None,

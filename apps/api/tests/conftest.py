@@ -21,14 +21,18 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from solutionforge.connectors.simulated import SIMULATED_TOOLS
 from solutionforge.core.config import Environment, Settings
 from solutionforge.db.base import Base
 from solutionforge.llm.providers.mock import MockProvider
 from solutionforge.llm.service import LLMService, RetryConfig
 from solutionforge.main import create_app
+from solutionforge.tools.catalog import ToolCatalog
+from solutionforge.tools.executor import ToolExecutor
 from solutionforge.workflows.engine import Engine
 from solutionforge.workflows.steps import default_registry
 from tests.helpers import Api
+from tests.tool_support import test_tools
 from tests.workflow_support import (
     BigOutputStep,
     BoomStep,
@@ -109,9 +113,27 @@ async def _truncate_all(app: FastAPI) -> None:
 
 
 @pytest.fixture
-def test_steps(app: FastAPI) -> InstrumentedSteps:
+def tool_harness(app: FastAPI) -> ToolExecutor:
+    """Executor over the real simulated tools plus fault-injection tools, no backoff sleeps."""
+
+    async def no_sleep(_: float) -> None:
+        return None
+
+    real: ToolExecutor = app.state.tool_executor
+    executor = ToolExecutor(
+        ToolCatalog([*SIMULATED_TOOLS, *test_tools()]),
+        app.state.sessionmaker,
+        real.cipher,
+        sleep=no_sleep,
+    )
+    app.state.tool_executor = executor
+    return executor
+
+
+@pytest.fixture
+def test_steps(app: FastAPI, tool_harness: ToolExecutor) -> InstrumentedSteps:
     """Registers fault-injection step types on the app's registry (API + engine share it)."""
-    registry = default_registry(app.state.llm_service)
+    registry = default_registry(app.state.llm_service, tool_harness)
     steps = InstrumentedSteps(CountStep(), FlakyStep(), CrashStep())
     for handler in (
         steps.count,

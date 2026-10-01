@@ -45,6 +45,12 @@ class AuditEventType(StrEnum):
 
     BUDGET_UPDATED = "budget.updated"
 
+    TOOL_INSTALLATION_UPDATED = "tool.installation_updated"
+    CREDENTIALS_UPDATED = "tool.credentials_updated"  # metadata never includes values
+    TOOL_EXECUTED = "tool.executed"  # side-effecting tools only
+    TOOL_DENIED = "tool.denied"
+    DEMO_DATA_SEEDED = "org.demo_data_seeded"
+
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_events"
