@@ -71,6 +71,7 @@ def settings(database_url: str) -> Settings:
         jwt_secret="test-secret-that-is-at-least-32-characters-long",  # type: ignore[arg-type]
         log_json=False,
         log_level="WARNING",
+        password_hash_profile="fast-insecure-test",
     )
 
 

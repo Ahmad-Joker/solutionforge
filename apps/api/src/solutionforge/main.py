@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -13,11 +15,13 @@ from solutionforge.api import health
 from solutionforge.api.errors import install_error_handlers
 from solutionforge.api.middleware import RequestContextMiddleware
 from solutionforge.api.v1 import approvals, audit, auth, knowledge, orgs, tools, usage, workflows
+from solutionforge.background import run_background
 from solutionforge.core.config import Settings, get_settings
 from solutionforge.core.logging import configure_logging, get_logger
 from solutionforge.db.session import build_engine, build_sessionmaker
 from solutionforge.llm.factory import build_llm_service
 from solutionforge.retrieval.factory import build_retriever
+from solutionforge.security import passwords
 from solutionforge.security.ratelimit import (
     FailOpenRateLimiter,
     InMemoryRateLimiter,
@@ -31,14 +35,32 @@ from solutionforge.workflows.steps import default_registry
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level, json=settings.log_json)
+    passwords.configure(settings.password_hash_profile)
 
     # Engines connect lazily, so building one here is cheap and keeps the app usable
     # by test clients that do not run the ASGI lifespan.
     engine = build_engine(settings.database_url, echo=settings.database_echo)
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        stop = asyncio.Event()
+        background: asyncio.Task[None] | None = None
+        if settings.embedded_worker:
+            # Single-process mode (demos, E2E): run the worker loops alongside the API.
+            background = asyncio.create_task(
+                run_background(
+                    stop,
+                    settings,
+                    app.state.sessionmaker,
+                    app.state.step_registry,
+                    app.state.retriever,
+                )
+            )
         yield
+        stop.set()
+        if background is not None:
+            with contextlib.suppress(TimeoutError, asyncio.CancelledError):
+                await asyncio.wait_for(background, timeout=30)
         await engine.dispose()
 
     app = FastAPI(

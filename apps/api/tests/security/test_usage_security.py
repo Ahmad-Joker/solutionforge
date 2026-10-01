@@ -16,7 +16,11 @@ pytestmark = pytest.mark.security
 
 LLM_WF = {
     "start": "a",
-    "steps": [step("a", "llm", {"model": "mock:mock-1", "prompt": "secret customer note: 4111"})],
+    "steps": [
+        step(
+            "a", "llm", {"model": "mock:mock-1", "prompt": "secret customer note: CARD-QZXW-SECRET"}
+        )
+    ],
 }
 
 
@@ -105,5 +109,5 @@ async def test_prompt_content_not_persisted_in_usage_or_audit(
     await engine.run_until_idle()
     records = (await client.get(s.url("/usage/records"), headers=s.owner.headers)).json()
     audit = (await client.get(s.url("/audit-events"), headers=s.owner.headers)).json()
-    assert records and "4111" not in str(records) and "4111" not in str(audit)
+    assert records and "QZXW" not in str(records) and "QZXW" not in str(audit)
     assert eid  # the execution itself (owned data) does hold the step output, by design

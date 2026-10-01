@@ -13,7 +13,9 @@ import { cookies } from "next/headers";
 export const API_BASE_URL = process.env.SF_API_URL ?? "http://localhost:8000";
 const ACCESS = "sf_access";
 const REFRESH = "sf_refresh";
-const secure = process.env.NODE_ENV === "production";
+// Secure cookies by default in production; SF_COOKIE_SECURE=false only for plain-http test
+// servers (the E2E suite). Never disable it behind a real domain.
+const secure = (process.env.SF_COOKIE_SECURE ?? (process.env.NODE_ENV === "production" ? "true" : "false")) === "true";
 
 export interface TokenPair {
   access_token: string;

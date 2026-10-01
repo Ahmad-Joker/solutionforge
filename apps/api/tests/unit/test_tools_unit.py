@@ -163,3 +163,14 @@ def test_side_effecting_tools_are_retry_safe_or_single_shot() -> None:
 def test_injection_and_malformed_inputs_rejected(model: Any, data: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
         model.model_validate(data)
+
+
+def test_cipher_requires_keys_and_object_payloads() -> None:
+    with pytest.raises(ValueError, match="at least one"):
+        CredentialCipher([])
+    key = CredentialCipher.generate_key()
+    from cryptography.fernet import Fernet
+
+    token = Fernet(key.encode()).encrypt(b'["not", "an", "object"]')
+    with pytest.raises(CredentialError, match="not an object"):
+        CredentialCipher([key]).decrypt(token)

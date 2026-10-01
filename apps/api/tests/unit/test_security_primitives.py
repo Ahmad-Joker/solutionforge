@@ -134,3 +134,14 @@ def test_blank_secrets_in_env_files_mean_unset(monkeypatch: pytest.MonkeyPatch) 
     assert len(s.jwt_secret_value) >= 32  # dev generates an ephemeral one
     with pytest.raises(ValueError, match="SF_JWT_SECRET"):
         Settings(environment=Environment.PRODUCTION)
+
+
+def test_fast_password_hashing_is_refused_outside_tests() -> None:
+    with pytest.raises(ValueError, match="only allowed"):
+        Settings(environment=Environment.DEV, password_hash_profile="fast-insecure-test")
+    with pytest.raises(ValueError, match="only allowed"):
+        Settings(
+            environment=Environment.PRODUCTION,
+            jwt_secret="x" * 40,  # type: ignore[arg-type]
+            password_hash_profile="fast-insecure-test",
+        )

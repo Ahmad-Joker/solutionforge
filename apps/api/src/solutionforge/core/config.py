@@ -5,6 +5,7 @@ from __future__ import annotations
 import secrets
 from enum import StrEnum
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -58,6 +59,10 @@ class Settings(BaseSettings):
     redis_url: SecretStr | None = None
     rate_limit_enabled: bool = True
 
+    password_hash_profile: Literal["standard", "fast-insecure-test"] = "standard"  # noqa: S105
+    # Run the worker loops inside the API process (single-container demos, E2E tests).
+    embedded_worker: bool = False
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     @field_validator(
@@ -78,6 +83,8 @@ class Settings(BaseSettings):
             self.jwt_secret = SecretStr(secrets.token_urlsafe(48))
         if len(self.jwt_secret.get_secret_value()) < 32:
             raise ValueError("SF_JWT_SECRET must be at least 32 characters")
+        if self.password_hash_profile != "standard" and self.environment != Environment.TEST:  # noqa: S105
+            raise ValueError("fast password hashing is only allowed when SF_ENVIRONMENT=test")
         if self.credentials_keys is None:
             if self.environment in (Environment.STAGING, Environment.PRODUCTION):
                 raise ValueError("SF_CREDENTIALS_KEYS must be set outside dev/test environments")
