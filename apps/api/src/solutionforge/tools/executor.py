@@ -44,6 +44,7 @@ from solutionforge.tools.spec import (
     ToolContext,
     ToolDenied,
     ToolError,
+    ToolIdempotencyConflict,
     ToolInputInvalid,
     ToolModel,
     ToolNotEnabled,
@@ -265,6 +266,10 @@ class ToolExecutor:
                 )
                 if prior is not None:
                     if prior.status == ToolCallStatus.SUCCEEDED:
+                        if prior.args != safe_args:
+                            raise ToolIdempotencyConflict(
+                                f"idempotency key already used for {name} with different arguments"
+                            )
                         return prior.id, prior.output or {}
                     prior.status = ToolCallStatus.STARTED
                     prior.args = safe_args

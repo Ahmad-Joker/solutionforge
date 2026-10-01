@@ -85,7 +85,17 @@ Original plan:
 idempotency). Simulated CRM, ticketing, email outbox, order DB, calendar. These are real
 Postgres-backed services with seeded data, not mocks. Encrypted connector credentials.
 
-## Phase 5 — Agent orchestration
+## Phase 5 — Agent orchestration ✅
+
+- [x] `agent` step: schema-constrained action protocol, allowlisted tools, policy-gated execution
+- [x] Caps: turns, tool calls, identical-call repeats; LLM budgets on every turn; invalid actions fail closed
+- [x] Errors and policy refusals fed back as untrusted `<observation>` data; final answer validated against a schema
+- [x] Decision trace (action, tool, sanitized args, outcome, short stated reason), with no hidden reasoning
+- [x] Per-action idempotency keys (turn + args hash); key reuse with different args rejected
+- [x] Injection test: model scripted to obey an injected instruction; refund and send are still blocked
+- [ ] Native tool-use adapter (optional; parallel tool calls)
+
+Original plan:
 Bounded tool-use loop step; tool selection recorded; structured decision trace (no raw chain of thought).
 
 ## Phase 6 — RAG

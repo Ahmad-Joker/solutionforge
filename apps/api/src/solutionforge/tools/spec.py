@@ -167,6 +167,13 @@ class ToolTimeout(ToolError):
     retryable = True
 
 
+class ToolIdempotencyConflict(ToolError):
+    """The idempotency key was already used for a *different* request: refusing to guess
+    whether to replay or execute (same rule as payment APIs)."""
+
+    code = "tool_idempotency_conflict"
+
+
 class ToolOutputInvalid(ToolError):
     """The tool returned data not matching its own output schema (a connector bug)."""
 

@@ -2,7 +2,7 @@
 
 **A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
 
-> **Project status: Phases 0–4 of 19 complete.** This README only describes what exists and is
+> **Project status: Phases 0–5 of 19 complete.** This README only describes what exists and is
 > tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
 > [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
 > once they exist and are measured.
@@ -19,6 +19,7 @@
 | **Workflow engine** | Versioned workflow definitions, validated as graphs; explicit deployments with rollback; a durable worker with **leases and fenced checkpoints**. After a crash mid-step, another worker resumes from the last saved step, and completed steps don't re-run. Retries with exponential backoff, timeouts, `on_error` fallbacks, **step and time budgets**, human-approval suspend/resume, cancellation, idempotent starts |
 | **LLM layer** | One `LLMService` for every model call. Providers: a **deterministic mock** (no API key needed) and **Anthropic via the official SDK**. **JSON-Schema-validated structured output with repair**, retries with backoff, model fallback, a circuit breaker, **every attempt metered in micro-USD**, and org, execution and token **budgets enforced before each call** |
 | **Tools** | Typed tool contracts with **risk levels** and MCP-compatible descriptors. One executor validates, **policy-gates** (external and high-risk actions blocked pending approval), deduplicates, times out, retries safely, and records every call. Simulated CRM, order, ticketing, email and payment systems back it. **Exactly-once side effects** across retries and worker crashes (tested). **Encrypted, write-only connector credentials** |
+| **Agents** | A bounded `agent` step. The model picks allowlisted tools through a **schema-constrained action protocol**. Every call goes through the same executor and policy gate, with turn, tool-call, repeat and budget caps and a structured decision trace. Tested against a model that **obeys a prompt injection**: the refund and the email are still blocked |
 | **API quality** | Versioned `/api/v1`, OpenAPI at `/docs`, uniform error envelope, request-ID propagation, structured JSON logs, liveness and readiness probes |
 | **Engineering** | Alembic migrations with a drift test; strict mypy; ruff (incl. bandit rules); CI on real PostgreSQL; Dockerfile (non-root) + compose stack |
 
@@ -92,8 +93,7 @@ Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
 
 ## Roadmap
 
-Agent
-orchestration → RAG with verified citations → policy engine → human approvals → dashboard →
+RAG with verified citations → policy engine → human approvals → dashboard →
 evaluation and quality-gated deployment → observability → cloud deployment → security and load
 testing → three customer case studies. Details and acceptance criteria are in
 [docs/BACKLOG.md](docs/BACKLOG.md).

@@ -24,4 +24,8 @@ def default_registry(
         from solutionforge.workflows.steps.tool import ToolStep
 
         registry.register(ToolStep(tool_executor))
+    if llm_service is not None and tool_executor is not None:
+        from solutionforge.workflows.steps.agent import AgentStep
+
+        registry.register(AgentStep(llm_service, tool_executor))
     return registry

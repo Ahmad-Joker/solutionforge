@@ -31,7 +31,7 @@ actions, audit history, and model spend.
 | T9 | Hash-flood DoS | Very large password input | 128-char cap in the schema, enforced before hashing | ✅ |
 | T10 | Audit tampering | App bug or compromised DB writer | Insert-only service API; PG trigger rejects UPDATE/DELETE | ✅ |
 | T11 | Secret leakage via logs | Tokens and passwords in metadata or errors | Metadata redaction; validation errors drop `input`; opaque 500s; request-ID header sanitized | ✅ |
-| T12 | Prompt injection → unauthorized action | Malicious user input or retrieved document tells the agent to call a tool | Tools must be installed per tenant; arguments are schema-validated (extra fields rejected, strings bounded, single-line subjects); a deterministic risk gate blocks external and high-risk actions | 🟡 (role-aware policy P7, approvals P8, adversarial suite P16) |
+| T12 | Prompt injection → unauthorized action | Malicious user input or retrieved document tells the agent to call a tool | Tools must be installed per tenant; arguments are schema-validated (extra fields rejected, strings bounded, single-line subjects); a deterministic risk gate blocks external and high-risk actions | 🟡 Agents: allowlist enforced in code, tool output marked as untrusted, and a test where the model *obeys* an injected instruction still produces no refund or email. Remaining: role-aware policy P7, approvals P8, full adversarial suite P16 |
 | T13 | Invented citations | Model fabricates sources | Citations must map to retrieved chunk IDs; verified in code | ⬜ Phase 6 |
 | T14 | PII exfiltration via tools/LLM | Agent asked to dump customer data | Tool output filtering, per-tool data scopes, adversarial eval set | ⬜ Phase 16 |
 | T15 | Runaway cost / infinite loops | Agent loops, huge contexts | Step/time budgets (P2); per-call worst-case pre-check against org daily/monthly, per-execution cost and token limits (P3); a budget stop can't be bypassed via `on_error` | ✅ (agent loop bounds: P5) |
@@ -46,6 +46,8 @@ actions, audit history, and model spend.
 | T25 | Tool argument injection | Header injection, SQL-ish payloads, unexpected fields | Pydantic models with patterns and `extra="forbid"`; parameterized queries only; a property test checks every string is bounded | ✅ |
 | T26 | Duplicate side effects | Retries, crash recovery, concurrent calls | Per-visit idempotency keys, executor replay ledger, connector-level unique keys; non-deduplicating writes are never retried | ✅ |
 | T27 | Cross-tenant data through tools | Tool reads another org's records, replays another org's key | Tools receive only their org ID and every query filters on it; ledger keys are scoped per org (tested) | ✅ |
+| T28 | Agent runaway / loops | Model repeats calls or never finishes | `max_turns`, `max_tool_calls`, repeat detection, budgets on every turn; invalid actions fail closed | ✅ |
+| T29 | Idempotency key misuse | Same key, different payload | Executor rejects mismatched args on replay (`tool_idempotency_conflict`) | ✅ |
 | T17 | Supply-chain vulnerabilities | Vulnerable dependencies | `pip-audit` in CI; pinned base images | 🟡 |
 
 ## Known gaps (tracked in the backlog)

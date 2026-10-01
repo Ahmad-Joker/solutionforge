@@ -209,7 +209,7 @@ A **WorkflowVersion** is an immutable, validated graph of typed steps:
 | `llm` ✅ | prompt template (+ optional JSON Schema) → text or validated JSON, via LLMService | no |
 | `retrieve` ⬜ P6 | query a knowledge base with metadata filters; returns chunks with IDs | no |
 | `tool` ✅ | templated args → ToolExecutor (validate → policy → dedupe → execute → record) | P8 (approval) |
-| `agent` ⬜ P5 | bounded tool-use loop (max iterations), each call still policy-checked | yes |
+| `agent` ✅ | bounded tool-use loop over an allowlist; every call goes through ToolExecutor + policy gate | P8 (approval) |
 
 **Definitions** (`workflows/definition.py`) are compiled when a version is created. The
 compiler rejects unknown step types, invalid configs, dangling `next`/`on_error`/branch
@@ -374,7 +374,44 @@ A tool is a `ToolSpec` plus an async `execute`. The spec declares:
 
 Writes that can't deduplicate are never retried by the executor.
 
-## 9. Cross-cutting decisions
+## 9. Agents ✅ (Phase 5)
+
+```mermaid
+sequenceDiagram
+  participant E as Engine (agent step)
+  participant L as LLMService
+  participant X as ToolExecutor
+  loop turn ≤ max_turns
+    E->>L: action schema + task + observations (budgeted, metered)
+    L-->>E: {"action":"call_tool","tool","args","reason"} or {"action":"final","answer"}
+    alt call_tool
+      E->>E: allowlist check · repeat detection · tool-call budget
+      E->>X: invoke(key = visit_key:a{turn}:{hash(tool,args)})
+      X-->>E: result, or validation / policy / business error
+      E->>L: next turn with <observation> (untrusted data)
+    else final
+      E->>E: validate answer against output_schema (feedback if invalid)
+    end
+  end
+```
+
+- **Protocol.** Each turn the model returns one schema-constrained JSON action. The schema
+  enumerates only the allowlisted tools, and the runner re-checks the allowlist in code. See
+  ADR-0009 for why this isn't vendor-native tool calling.
+- **Control stays in code.**
+  - Policy refusals, argument errors and business errors become observations the model can
+    adapt to. They can never be bypassed.
+  - Hard caps: `max_turns` (≤ 20), `max_tool_calls` (≤ 50), and at most two identical calls in
+    a row. The org, execution and token budgets from Phase 3 apply on every turn.
+  - A model that keeps emitting invalid actions fails the step closed.
+- **Trace, not thoughts.** Each turn records the action, tool, sanitized args, outcome, and a
+  one-sentence reason (≤ 300 chars) the model states for the action. No hidden reasoning is
+  stored.
+- **Exactly-once.** The key for each agent action includes the turn and a hash of the
+  arguments, so a crash-recovered re-run of the same decision replays it. Reusing a key with
+  different arguments is rejected (`tool_idempotency_conflict`).
+
+## 10. Cross-cutting decisions
 
 - **Time:** all timestamps are timezone-aware UTC. A `UTCDateTime` column type rejects naive values.
 - **IDs:** UUIDv4 everywhere. Nothing sequential is exposed.
