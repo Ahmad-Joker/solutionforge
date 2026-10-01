@@ -58,6 +58,14 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | GET | `/orgs/{org_id}/tool-calls` | `tool:read` | call trail; filters `execution_id`, `tool_name`, `before`, `limit` |
 | POST | `/orgs/{org_id}/demo-data` | `org:manage` | seed simulated systems and install simulated tools (idempotent) |
 | GET | `/orgs/{org_id}/simulated/activity` | `tool:read` | tickets, emails, refunds created by tools |
+| POST | `/orgs/{org_id}/knowledge-bases` | `knowledge:write` | `{name, description, chunk_size, chunk_overlap}` |
+| GET | `/orgs/{org_id}/knowledge-bases[/{id}]` | `knowledge:read` | |
+| DELETE | `/orgs/{org_id}/knowledge-bases/{id}` | `knowledge:write` | cascades documents and chunks |
+| POST | `/orgs/{org_id}/knowledge-bases/{id}/documents` | `knowledge:write` | `{title, content, metadata, source_uri}` → 202 (queued); identical content → 200 with the existing doc |
+| GET | `/orgs/{org_id}/knowledge-bases/{id}/documents` | `knowledge:read` | `status` filter |
+| GET/DELETE | `/orgs/{org_id}/documents/{id}` | read / write | status, attempts, last_error |
+| POST | `/orgs/{org_id}/documents/{id}/retry` | `knowledge:write` | re-queue a dead-lettered document |
+| POST | `/orgs/{org_id}/knowledge-bases/{id}/search` | `knowledge:read` | `{query, top_k, strategy: dense\|keyword\|hybrid, filters, min_dense_score}` |
 | GET | `/healthz`, `/readyz` | public | liveness / readiness (DB) |
 
 ## Walkthrough

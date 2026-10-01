@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 import solutionforge.domain  # noqa: F401  (registers all tables)
 from solutionforge.core.config import get_settings
-from solutionforge.db.base import Base
+from solutionforge.db.base import Base, compare_type, include_object
 
 config = context.config
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):
@@ -32,7 +32,8 @@ def _run(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        compare_type=True,
+        compare_type=compare_type,
+        include_object=include_object,
         render_as_batch=connection.dialect.name == "sqlite",
     )
     with context.begin_transaction():

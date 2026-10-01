@@ -57,14 +57,14 @@ flowchart LR
     POL[Policy gate: risk × tenant installation ✅ / role-aware ⬜ P7]
     APR[Approvals ⬜]
     EVAL[Evaluation + deploy gates ⬜]
-    KB[Knowledge bases / ingestion ⬜]
+    KB[Knowledge bases + durable ingestion jobs ✅]
   end
 
   subgraph Runtime["Worker process ✅"]
     ENG[Workflow engine: durable state machine ✅]
     LLM[LLMService: providers, retry, fallback, breaker, metering, budgets ✅]
     TOOLS[Tool catalog + executor + simulated connectors ✅]
-    RET[Retrieval: dense / BM25 / hybrid ⬜]
+    RET[Retrieval: dense pgvector / keyword FTS / hybrid RRF ✅]
   end
 
   PG[(PostgreSQL + pgvector ✅ schema v1)]
@@ -125,7 +125,7 @@ erDiagram
 | ToolInstallation, ToolCall | ✅ | migration `0004`. Per-tenant opt-in with encrypted credentials. The call trail is unique on `(org, tool, idempotency_key)` |
 | Sim* (customers, orders, tickets, messages, refunds) | ✅ | stand-ins for customer systems: real tenant-scoped tables behind the tool interface |
 | Approval | ⬜ Phase 8 | |
-| KnowledgeBase, Document, Chunk | ⬜ Phase 6 | `vector` column via pgvector |
+| KnowledgeBase, Document, Chunk | ✅ | migration `0005`. `vector(1024)` + HNSW (cosine) and a GIN full-text index on PG. Documents carry their ingestion job state (lease, attempts, dead letter) |
 | EvaluationDataset/Case/Run, DeploymentDecision | ⬜ Phase 11 | |
 | UsageRecord, OrgBudget | ✅ | migration `0003`. One row per provider attempt (success or failure), integer micro-USD, with no prompt or output content |
 
@@ -186,7 +186,7 @@ caller's membership **before** any handler code runs. It never comes from a requ
 | Executions | `POST …/workflows/{id}/executions` (idempotency key), `GET …/executions` (filters), `GET …/executions/{id}` (+ steps), `POST …/executions/{id}/cancel`, `POST …/executions/{id}/resume` | ✅ |
 | Approvals | `GET …/approvals`, `POST …/approvals/{id}/decision` | ⬜ |
 | Tools | `GET …/tools` (with MCP descriptors), `PUT …/tools/{name}` (enable, policy, config, write-only credentials), `GET …/tool-calls`, `POST …/demo-data`, `GET …/simulated/activity` | ✅ |
-| Knowledge | `…/knowledge-bases`, `…/documents` (upload → async ingestion) | ⬜ |
+| Knowledge | `POST/GET …/knowledge-bases`, `GET/DELETE …/knowledge-bases/{id}`, `POST/GET …/knowledge-bases/{id}/documents` (202, async ingestion, idempotent by content hash), `GET/DELETE …/documents/{id}`, `POST …/documents/{id}/retry`, `POST …/knowledge-bases/{id}/search` | ✅ |
 | Evaluation | `…/eval-datasets`, `…/eval-runs`, `…/deployments` (gate decisions) | ⬜ |
 | Usage & budgets | `GET …/usage/summary`, `GET …/usage/records`, `GET/PUT …/budget` | ✅ |
 | Ops | `GET /healthz` (liveness), `GET /readyz` (DB check), `/metrics` ⬜ | ✅/⬜ |
@@ -207,7 +207,8 @@ A **WorkflowVersion** is an immutable, validated graph of typed steps:
 | `approval` ✅ | human checkpoint; `resume` with `{approved, comment, data}`; `on_reject` route | yes |
 | `fail` ✅ | terminate with a coded error | no |
 | `llm` ✅ | prompt template (+ optional JSON Schema) → text or validated JSON, via LLMService | no |
-| `retrieve` ⬜ P6 | query a knowledge base with metadata filters; returns chunks with IDs | no |
+| `retrieve` ✅ | dense / keyword / hybrid search with filters and a relevance floor → chunks with IDs and offsets | no |
+| `grounded_answer` ✅ | answer only from retrieved chunks; citations restricted by schema **and verified in code**; no sources → no model call | no |
 | `tool` ✅ | templated args → ToolExecutor (validate → policy → dedupe → execute → record) | P8 (approval) |
 | `agent` ✅ | bounded tool-use loop over an allowlist; every call goes through ToolExecutor + policy gate | P8 (approval) |
 
@@ -411,7 +412,21 @@ sequenceDiagram
   arguments, so a crash-recovered re-run of the same decision replays it. Reusing a key with
   different arguments is rejected (`tool_idempotency_conflict`).
 
-## 10. Cross-cutting decisions
+## 10. Retrieval (RAG) ✅ (Phase 6)
+
+See [docs/RETRIEVAL.md](docs/RETRIEVAL.md) for the pipeline, the citation rules, and the
+**measured** recall@k and MRR for dense, keyword and hybrid search.
+
+- **Ingestion jobs** reuse the engine's reliability pattern: `SKIP LOCKED` claiming, leases,
+  attempts counted at claim time, fenced commits, backoff, and a dead-letter state that can
+  be retried via the API. The worker process runs the ingestion loop alongside the execution
+  loop.
+- **Two backends, one interface.** PostgreSQL uses pgvector, an HNSW index and `tsvector`
+  (production). Other dialects use an exact scan and Python BM25 (the fast local test loop).
+  CI runs the suite on PostgreSQL. PostgreSQL-only indexes use the `pgx_` prefix and are
+  excluded from the drift check.
+
+## 11. Cross-cutting decisions
 
 - **Time:** all timestamps are timezone-aware UTC. A `UTCDateTime` column type rejects naive values.
 - **IDs:** UUIDv4 everywhere. Nothing sequential is exposed.

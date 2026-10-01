@@ -10,6 +10,8 @@ from solutionforge.core.config import get_settings
 from solutionforge.core.logging import configure_logging
 from solutionforge.db.session import build_engine, build_sessionmaker
 from solutionforge.llm.factory import build_llm_service
+from solutionforge.retrieval.factory import build_retriever
+from solutionforge.retrieval.ingest import IngestionWorker
 from solutionforge.tools.factory import build_tool_executor
 from solutionforge.workflows.engine import Engine
 from solutionforge.workflows.steps import default_registry
@@ -21,10 +23,14 @@ async def main() -> None:
     configure_logging(settings.log_level, json=settings.log_json)
     db = build_engine(settings.database_url)
     sessionmaker = build_sessionmaker(db)
+    retriever = build_retriever(sessionmaker)
     registry = default_registry(
-        build_llm_service(settings, sessionmaker), build_tool_executor(settings, sessionmaker)
+        build_llm_service(settings, sessionmaker),
+        build_tool_executor(settings, sessionmaker),
+        retriever,
     )
     engine = Engine(sessionmaker, registry)
+    ingestion = IngestionWorker(sessionmaker, retriever.embedder, worker_id=engine.worker_id)
     worker = Worker(
         engine,
         concurrency=settings.worker_concurrency,
@@ -37,7 +43,11 @@ async def main() -> None:
         with contextlib.suppress(NotImplementedError):
             loop.add_signal_handler(sig, stop.set)
     try:
-        await worker.run(stop)
+        # One process, two durable job loops: workflow executions and document ingestion.
+        await asyncio.gather(
+            worker.run(stop),
+            ingestion.run(stop, poll_interval=settings.worker_poll_interval_seconds),
+        )
     finally:
         await db.dispose()
 

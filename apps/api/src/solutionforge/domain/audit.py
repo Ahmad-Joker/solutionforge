@@ -51,6 +51,11 @@ class AuditEventType(StrEnum):
     TOOL_DENIED = "tool.denied"
     DEMO_DATA_SEEDED = "org.demo_data_seeded"
 
+    KB_CREATED = "knowledge_base.created"
+    KB_DELETED = "knowledge_base.deleted"
+    DOCUMENT_ADDED = "document.added"
+    DOCUMENT_DELETED = "document.deleted"
+
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_events"

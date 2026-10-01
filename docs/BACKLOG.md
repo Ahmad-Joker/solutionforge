@@ -98,7 +98,20 @@ Postgres-backed services with seeded data, not mocks. Encrypted connector creden
 Original plan:
 Bounded tool-use loop step; tool selection recorded; structured decision trace (no raw chain of thought).
 
-## Phase 6 — RAG
+## Phase 6 — RAG ✅
+
+- [x] Knowledge bases and documents per tenant; idempotent upload (content hash); durable ingestion jobs with dead letter and retry API
+- [x] Structure-aware chunking with exact offsets and heading-bounded chunks (coverage and offset invariants tested)
+- [x] pgvector `vector(1024)` + HNSW; Postgres FTS + GIN; hybrid RRF; metadata filters in SQL
+- [x] Dense relevance floor calibrated by measurement (docs/RETRIEVAL.md)
+- [x] `retrieve` and `grounded_answer` steps; citations restricted by schema and verified in code
+- [x] Measured recall@1/3/5 and MRR for dense, keyword and hybrid on a labelled fixture
+- [x] Tenant isolation (incl. same-name KBs across orgs) and RBAC tests
+- [ ] Semantic embedding provider (Voyage/OpenAI/local) + re-measure; cross-encoder reranking
+- [ ] File upload (PDF/DOCX parsing); today the API accepts text/Markdown content
+- [ ] Embedding cost metering (needed once a paid embedder exists)
+
+Original plan:
 Ingestion (upload → parse → chunk → embed) as background jobs; pgvector HNSW; metadata filters;
 citations bound to chunk IDs, with a verifier that rejects unknown IDs. Later: BM25
 (`tsvector`), hybrid RRF, reranking, and a retrieval eval (recall@k, MRR).

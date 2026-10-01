@@ -9,11 +9,14 @@ from solutionforge.workflows.steps.builtin import builtin_handlers
 
 if TYPE_CHECKING:
     from solutionforge.llm.service import LLMService
+    from solutionforge.retrieval.search import Retriever
     from solutionforge.tools.executor import ToolExecutor
 
 
 def default_registry(
-    llm_service: LLMService | None = None, tool_executor: ToolExecutor | None = None
+    llm_service: LLMService | None = None,
+    tool_executor: ToolExecutor | None = None,
+    retriever: Retriever | None = None,
 ) -> StepRegistry:
     registry = StepRegistry(builtin_handlers())
     if llm_service is not None:
@@ -28,4 +31,12 @@ def default_registry(
         from solutionforge.workflows.steps.agent import AgentStep
 
         registry.register(AgentStep(llm_service, tool_executor))
+    if retriever is not None:
+        from solutionforge.workflows.steps.rag import RetrieveStep
+
+        registry.register(RetrieveStep(retriever, retriever.sessionmaker))
+    if llm_service is not None:
+        from solutionforge.workflows.steps.rag import GroundedAnswerStep
+
+        registry.register(GroundedAnswerStep(llm_service))
     return registry

@@ -7,7 +7,7 @@ from alembic.migration import MigrationContext
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from solutionforge.db.base import Base
+from solutionforge.db.base import Base, compare_type, include_object
 
 
 async def test_liveness_and_readiness(client: AsyncClient) -> None:
@@ -62,7 +62,9 @@ async def test_models_match_migrations(app: FastAPI) -> None:
     """Fails if someone changes a model without writing a migration."""
 
     def diff(sync_conn):  # type: ignore[no-untyped-def]
-        ctx = MigrationContext.configure(sync_conn, opts={"compare_type": True})
+        ctx = MigrationContext.configure(
+            sync_conn, opts={"compare_type": compare_type, "include_object": include_object}
+        )
         return compare_metadata(ctx, Base.metadata)
 
     async with app.state.engine.connect() as conn:

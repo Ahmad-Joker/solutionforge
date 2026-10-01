@@ -2,6 +2,7 @@
 
 from solutionforge.domain.audit import AuditEvent, AuditEventType
 from solutionforge.domain.identity import Invitation, Membership, Organization, RefreshToken, User
+from solutionforge.domain.knowledge import Chunk, Document, DocumentStatus, KnowledgeBase
 from solutionforge.domain.simulated import SimCustomer, SimMessage, SimOrder, SimRefund, SimTicket
 from solutionforge.domain.tools import ToolCall, ToolCallStatus, ToolInstallation
 from solutionforge.domain.usage import OrgBudget, UsageRecord
@@ -18,10 +19,14 @@ from solutionforge.domain.workflow import (
 __all__ = [
     "AuditEvent",
     "AuditEventType",
+    "Chunk",
+    "Document",
+    "DocumentStatus",
     "Execution",
     "ExecutionStatus",
     "ExecutionStep",
     "Invitation",
+    "KnowledgeBase",
     "Membership",
     "OrgBudget",
     "Organization",

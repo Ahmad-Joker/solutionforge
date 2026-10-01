@@ -74,3 +74,59 @@ class TenantScopedMixin:
         return mapped_column(
             sa.ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=False
         )
+
+
+class Embedding(sa.TypeDecorator[list[float]]):
+    """``vector(N)`` on PostgreSQL (pgvector, HNSW-indexable); a JSON array elsewhere.
+
+    The SQLite fallback exists only so the fast local test loop can exercise the portable
+    retrieval path; production retrieval runs in SQL on pgvector.
+    """
+
+    impl = sa.JSON
+    cache_ok = True
+
+    def __init__(self, dim: int) -> None:
+        super().__init__()
+        self.dim = dim
+
+    def load_dialect_impl(self, dialect: Dialect) -> sa.types.TypeEngine[Any]:
+        if dialect.name == "postgresql":
+            from pgvector.sqlalchemy import Vector
+
+            return dialect.type_descriptor(Vector(self.dim))
+        return dialect.type_descriptor(sa.JSON())
+
+    def process_bind_param(self, value: list[float] | None, dialect: Dialect) -> Any:
+        if value is not None and len(value) != self.dim:
+            raise ValueError(f"embedding has {len(value)} dims, column expects {self.dim}")
+        return value
+
+    def process_result_value(self, value: Any, dialect: Dialect) -> list[float] | None:
+        if value is None:
+            return None
+        return [float(x) for x in value]
+
+
+# Objects created by migrations for PostgreSQL only (HNSW/GIN indexes) are named with this
+# prefix so the model-vs-migration drift check can ignore them.
+PG_ONLY_PREFIX = "pgx_"
+
+
+def include_object(
+    obj: Any, name: str | None, type_: str, reflected: bool, compare_to: Any
+) -> bool:
+    return not (type_ == "index" and name is not None and name.startswith(PG_ONLY_PREFIX))
+
+
+def compare_type(
+    context: Any,
+    inspected_column: Any,
+    metadata_column: Any,
+    inspected_type: Any,
+    metadata_type: Any,
+) -> bool | None:
+    """Alembic hook: an Embedding column matches pgvector's VECTOR / SQLite's JSON."""
+    if isinstance(metadata_type, Embedding):
+        return False
+    return None  # default comparison

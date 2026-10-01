@@ -133,7 +133,7 @@ def tool_harness(app: FastAPI) -> ToolExecutor:
 @pytest.fixture
 def test_steps(app: FastAPI, tool_harness: ToolExecutor) -> InstrumentedSteps:
     """Registers fault-injection step types on the app's registry (API + engine share it)."""
-    registry = default_registry(app.state.llm_service, tool_harness)
+    registry = default_registry(app.state.llm_service, tool_harness, app.state.retriever)
     steps = InstrumentedSteps(CountStep(), FlakyStep(), CrashStep())
     for handler in (
         steps.count,

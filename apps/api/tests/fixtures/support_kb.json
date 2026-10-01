@@ -1,0 +1,43 @@
+{
+  "description": "Synthetic support knowledge base for a fictional retailer (written for this project). 12 articles, 24 labelled queries. Queries deliberately mix exact-term matches and paraphrases so dense vs keyword vs hybrid differences are visible.",
+  "documents": [
+    {"id": "refunds", "title": "Refund policy", "metadata": {"category": "billing"}, "content": "# Refund policy\n\nYou can request a refund within 30 days of delivery. Refunds are issued to the original payment method and usually appear within 5 to 10 business days.\n\n## Exceptions\n\nGift cards, final-sale items and personalised products cannot be refunded. Opened software is eligible only if defective."},
+    {"id": "returns", "title": "How to return an item", "metadata": {"category": "orders"}, "content": "# Returning an item\n\nStart a return from the Orders page and print the prepaid shipping label. Pack the item in its original packaging. Drop the parcel at any carrier location within 14 days of starting the return.\n\n## Return shipping costs\n\nReturns are free for defective items. For other returns a flat fee of 4.99 is deducted from the refund."},
+    {"id": "shipping-times", "title": "Shipping times", "metadata": {"category": "orders"}, "content": "# Shipping times\n\nStandard shipping takes 3 to 5 business days. Express shipping takes 1 to 2 business days and is available for orders placed before 2 pm. Orders to remote regions can take up to 10 business days."},
+    {"id": "delays", "title": "Delayed orders", "metadata": {"category": "orders"}, "content": "# My order is late\n\nIf your package is more than 3 days past the promised delivery date, the carrier may be experiencing capacity issues or a customs inspection. Gold and platinum members receive a proactive update and a support ticket is opened automatically. You can request compensation for delays longer than 7 days."},
+    {"id": "tracking", "title": "Tracking your package", "metadata": {"category": "orders"}, "content": "# Tracking\n\nA tracking number is emailed when the order ships. Use it on the carrier website to see the latest scan. Tracking can take 24 hours to update after the label is created."},
+    {"id": "password", "title": "Resetting your password", "metadata": {"category": "account"}, "content": "# Password reset\n\nClick Forgot password on the sign-in page and enter your email address. The reset link expires after 30 minutes. If you do not receive the email, check your spam folder or contact support."},
+    {"id": "mfa", "title": "Two-factor authentication", "metadata": {"category": "account"}, "content": "# Two-factor authentication\n\nEnable two-factor authentication under Security settings using an authenticator app. Store your backup codes somewhere safe; each code works once. Lost access to your authenticator? Use a backup code or contact support with photo identification."},
+    {"id": "loyalty", "title": "Loyalty tiers", "metadata": {"category": "membership"}, "content": "# Loyalty tiers\n\nMembers earn points on every purchase. Gold tier starts at 2,000 points per year and includes free express shipping. Platinum tier starts at 5,000 points and adds a dedicated support line and early access to sales."},
+    {"id": "payment-methods", "title": "Accepted payment methods", "metadata": {"category": "billing"}, "content": "# Payment methods\n\nWe accept major credit and debit cards, PayPal and bank transfer. Buy now, pay later is available on orders over 50. Cash on delivery is not supported."},
+    {"id": "invoices", "title": "Invoices and receipts", "metadata": {"category": "billing"}, "content": "# Invoices\n\nA VAT invoice is attached to the confirmation email. Business customers can add a company name and tax ID at checkout. To download past invoices, open the order and choose Download invoice."},
+    {"id": "damaged", "title": "Damaged or defective items", "metadata": {"category": "orders"}, "content": "# Damaged items\n\nIf an item arrives broken or stops working within the warranty period, report it within 48 hours of delivery with photos. We send a free replacement or a full refund, and return shipping is free."},
+    {"id": "privacy", "title": "Privacy and data deletion", "metadata": {"category": "account"}, "content": "# Your data\n\nYou can export your personal data or request deletion of your account under Privacy settings. Deletion is completed within 30 days. Order records required for tax purposes are retained for 7 years."}
+  ],
+  "queries": [
+    {"q": "how long do refunds take to appear", "relevant": ["refunds"]},
+    {"q": "can I get my money back for a gift card", "relevant": ["refunds"]},
+    {"q": "print a prepaid label to send something back", "relevant": ["returns"]},
+    {"q": "is return shipping free", "relevant": ["returns", "damaged"]},
+    {"q": "express shipping cutoff time", "relevant": ["shipping-times"]},
+    {"q": "delivery to remote regions", "relevant": ["shipping-times"]},
+    {"q": "package is late past promised date", "relevant": ["delays"]},
+    {"q": "compensation for a delayed order", "relevant": ["delays"]},
+    {"q": "where is my tracking number", "relevant": ["tracking"]},
+    {"q": "tracking not updating", "relevant": ["tracking"]},
+    {"q": "forgot password reset link expired", "relevant": ["password"]},
+    {"q": "reset email not received", "relevant": ["password"]},
+    {"q": "lost my authenticator app", "relevant": ["mfa"]},
+    {"q": "backup codes for two-factor", "relevant": ["mfa"]},
+    {"q": "points needed for platinum", "relevant": ["loyalty"]},
+    {"q": "benefits of gold membership", "relevant": ["loyalty"]},
+    {"q": "do you take PayPal", "relevant": ["payment-methods"]},
+    {"q": "pay on delivery with cash", "relevant": ["payment-methods"]},
+    {"q": "download a VAT invoice", "relevant": ["invoices"]},
+    {"q": "add company tax ID to order", "relevant": ["invoices"]},
+    {"q": "item arrived broken", "relevant": ["damaged"]},
+    {"q": "product stopped working under warranty", "relevant": ["damaged"]},
+    {"q": "delete my account and personal data", "relevant": ["privacy"]},
+    {"q": "how long are order records kept", "relevant": ["privacy"]}
+  ]
+}
