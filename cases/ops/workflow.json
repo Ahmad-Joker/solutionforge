@@ -1,0 +1,40 @@
+{
+  "start": "find",
+  "inputs": {"min_days_late": {"type": "integer", "description": "Report orders strictly more than N days late"}},
+  "limits": {"max_steps": 20, "max_cost_usd": "0.05"},
+  "steps": [
+    {"id": "find", "type": "tool", "config": {"tool": "orders.find_delayed", "args": {
+       "min_days_late": "$.input.min_days_late", "tiers": ["gold", "platinum"], "limit": 10}},
+     "next": "any"},
+    {"id": "any", "type": "condition", "config": {
+      "branches": [{"when": {"path": "$.steps.find.result.orders[0]", "op": "exists"}, "goto": "brief"}],
+      "default": "quiet"}},
+    {"id": "brief", "type": "llm", "config": {
+       "model": "mock:mock-1",
+       "system": "You write a 3-sentence operations brief about delayed VIP orders: scale, oldest, likely causes.",
+       "prompt": "Delayed VIP orders (as of {{ $.steps.find.result.as_of }}): {{ $.steps.find.result.orders }}",
+       "output_schema": {"type": "object", "required": ["headline", "brief"], "additionalProperties": false,
+         "properties": {"headline": {"type": "string", "minLength": 3, "maxLength": 120},
+                        "brief": {"type": "string", "minLength": 3, "maxLength": 1500}}}},
+     "next": "ticket"},
+    {"id": "ticket", "type": "tool", "config": {"tool": "ticketing.create_ticket", "args": {
+       "subject": "VIP delay sweep: oldest {{ $.steps.find.result.orders[0].ref }} ({{ $.steps.find.result.orders[0].days_late }} days)",
+       "body": "{{ $.steps.brief.json.brief }}\n\nOrders: {{ $.steps.find.result.orders }}",
+       "priority": "high"}},
+     "next": "draft"},
+    {"id": "draft", "type": "tool", "config": {"tool": "email.draft_message", "args": {
+       "to": "ops-lead@acme.example",
+       "subject": "$.steps.brief.json.headline",
+       "body": "Ticket {{ $.steps.ticket.result.ticket_ref }}: {{ $.steps.brief.json.brief }}"}},
+     "next": "report"},
+    {"id": "report", "type": "transform", "config": {"set": {
+       "status": "escalated",
+       "oldest_order": "$.steps.find.result.orders[0].ref",
+       "oldest_tier": "$.steps.find.result.orders[0].customer_tier",
+       "ticket": "$.steps.ticket.result.ticket_ref"}}},
+    {"id": "quiet", "type": "transform", "config": {"set": {
+       "status": "nothing_to_report", "oldest_order": "", "oldest_tier": "", "ticket": ""}}}
+  ],
+  "output": {"status": "$.state.status", "oldest_order": "$.state.oldest_order",
+             "oldest_tier": "$.state.oldest_tier", "ticket": "$.state.ticket"}
+}

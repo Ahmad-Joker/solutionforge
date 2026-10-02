@@ -236,14 +236,25 @@ async def start_run(
         try:
             validate_input(compiled.definition, case.input)
         except ValidationFailed:
+            # The input never ran. That is exactly right for a case that expects rejection
+            # (status "failed", nothing that requires a run); wrong for every other case.
+            exp = CaseExpectations.model_validate(case.expectations)
+            expected = (
+                exp.status == "failed"
+                and not exp.expected_tools
+                and exp.output_subset is None
+                and exp.output_schema is None
+            )
             session.add(
                 EvaluationResult(
                     organization_id=ctx.organization_id,
                     run_id=run.id,
                     case_id=case.id,
-                    passed=False,
-                    scores=INVALID_INPUT_SCORES,
-                    failures=["case input does not match the workflow's declared inputs"],
+                    passed=expected,
+                    scores={**INVALID_INPUT_SCORES, "status": expected},
+                    failures=[]
+                    if expected
+                    else ["case input does not match the workflow's declared inputs"],
                 )
             )
             continue
@@ -435,9 +446,13 @@ async def _score_run(s: AsyncSession, run: EvaluationRun, execs: list[Execution]
 
 
 async def _observe(s: AsyncSession, ex: Execution) -> Observation:
-    tools = (
-        await s.scalars(sa.select(ToolCall.tool_name).where(ToolCall.execution_id == ex.id))
-    ).all()
+    # "Attempted" = executed, denied, OR held for human approval. An approval request is not a
+    # tool_calls row until a human approves, but a workflow that *asked* to issue a refund has
+    # attempted it: expected/forbidden tool checks must see it.
+    tools = [
+        *(await s.scalars(sa.select(ToolCall.tool_name).where(ToolCall.execution_id == ex.id))),
+        *(await s.scalars(sa.select(Approval.tool_name).where(Approval.execution_id == ex.id))),
+    ]
     cost, tokens = (
         await s.execute(
             sa.select(

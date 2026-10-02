@@ -1,0 +1,28 @@
+{
+  "start": "find",
+  "inputs": {"question": {"type": "string"}},
+  "limits": {"max_steps": 20, "max_cost_usd": "0.05"},
+  "steps": [
+    {"id": "find", "type": "retrieve",
+     "config": {"knowledge_base": "policies", "query": "$.input.question", "top_k": 3, "strategy": "hybrid"},
+     "next": "has_sources"},
+    {"id": "has_sources", "type": "condition", "config": {
+      "branches": [{"when": {"path": "$.steps.find.chunks[0]", "op": "exists"}, "goto": "answer"}],
+      "default": "no_sources"}},
+    {"id": "answer", "type": "grounded_answer",
+     "config": {"model": "mock:mock-1", "question": "$.input.question", "sources_from": "find"},
+     "on_error": "sources_only", "next": "answered"},
+    {"id": "answered", "type": "transform", "config": {"set": {
+      "mode": "cited_answer", "answer": "$.steps.answer.answer",
+      "top_source": "$.steps.find.chunks[0].title"}}},
+    {"id": "sources_only", "type": "transform", "config": {"set": {
+      "mode": "sources_only",
+      "answer": "I couldn't produce an answer I can back with citations. The most relevant articles are listed below.",
+      "top_source": "$.steps.find.chunks[0].title"}}},
+    {"id": "no_sources", "type": "transform", "config": {"set": {
+      "mode": "insufficient_context",
+      "answer": "Our knowledge base doesn't cover this question.",
+      "top_source": ""}}}
+  ],
+  "output": {"mode": "$.state.mode", "answer": "$.state.answer", "top_source": "$.state.top_source"}
+}

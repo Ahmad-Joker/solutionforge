@@ -24,7 +24,7 @@ model.
   "output_subset": {"tier": "gold"},    // deep subset match against the execution output
   "output_schema": {"type": "object"},  // JSON Schema the output must satisfy
   "expected_tools": ["crm.get_customer"],
-  "forbidden_tools": ["payments.issue_refund"],  // attempted counts, even if blocked
+  "forbidden_tools": ["payments.issue_refund"],  // attempted = executed, denied, or held for approval
   "expected_cited_titles": ["Refund policy"],
   "max_steps": 5,
   "max_cost_usd": "0.002"

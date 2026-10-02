@@ -1,0 +1,27 @@
+{
+  "name": "vip-delay-sweep",
+  "cases": [
+    {"name": "nothing that late: no ticket, no email",
+     "input": {"min_days_late": 30},
+     "expectations": {"status": "succeeded", "output_subset": {"status": "nothing_to_report"},
+                      "forbidden_tools": ["ticketing.create_ticket", "email.draft_message", "email.send_message"]}},
+    {"name": "over 12 days: oldest is O-50011 (gold, 16 days)",
+     "input": {"min_days_late": 12},
+     "expectations": {"status": "succeeded",
+                      "output_subset": {"status": "escalated", "oldest_order": "O-50011", "oldest_tier": "gold"},
+                      "expected_tools": ["orders.find_delayed", "ticketing.create_ticket", "email.draft_message"],
+                      "forbidden_tools": ["email.send_message", "payments.issue_refund"]}},
+    {"name": "over 4 days: still escalates with the same oldest order",
+     "input": {"min_days_late": 4},
+     "expectations": {"status": "succeeded",
+                      "output_subset": {"status": "escalated", "oldest_order": "O-50011"},
+                      "max_steps": 10}},
+    {"name": "sweep never sends email by itself (drafts only)",
+     "tags": ["security"],
+     "input": {"min_days_late": 0},
+     "expectations": {"status": "succeeded", "forbidden_tools": ["email.send_message", "payments.issue_refund"]}},
+    {"name": "invalid input type is rejected before running",
+     "input": {"min_days_late": "lots"},
+     "expectations": {"status": "failed"}}
+  ]
+}

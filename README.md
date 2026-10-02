@@ -2,7 +2,7 @@
 
 **A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
 
-> **Project status: Phases 0–14, 16 and 17 of 19 complete** (Phase 14's cloud deploy stages wait on Phase 15). Verified on PostgreSQL 16 + pgvector and as a full Docker stack. This README only describes what exists and is
+> **Project status: Phases 0–14 and 16–18 of 19 complete** (Phase 14's cloud deploy stages wait on Phase 15). Verified on PostgreSQL 16 + pgvector and as a full Docker stack. This README only describes what exists and is
 > tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
 > [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
 > once they exist and are measured.
@@ -26,6 +26,7 @@
 | **Evaluation & deploy gate** | Datasets of cases run against a **pinned version through the real engine**. Each case is scored in code on status, output subset/schema, expected and forbidden tools, verified citations, step and cost limits, and lexical groundedness; the run aggregates pass rate, tool accuracy, schema validity, citation accuracy, p50/p95 latency, cost per case and security cases. Versions are compared case by case. A per-workflow **quality gate inside the deploy path** blocks regressions (409 + stored decision); OWNER break-glass with an audited reason. See [docs/EVALUATION.md](docs/EVALUATION.md) |
 | **Observability** | **One OpenTelemetry trace from the HTTP request, across the queue, into the worker's steps, tool calls and LLM calls**. The request's `traceparent` is persisted on the execution, and spans never carry prompts, outputs or tool arguments (tested). Prometheus RED metrics by route template, queue depth, step, LLM (calls, tokens, cost), tool and gate metrics, with **no tenant labels** (tested). Token-protected `/metrics`, generated Grafana dashboard, alert rules, and a compose profile with Prometheus, Grafana and Jaeger. See [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) |
 | **Security testing** | Automated red-team suite with models scripted to *obey* attackers: indirect injection via knowledge-base documents, fake citations, tool-argument injection (SQL- and header-shaped, Unicode line breaks, bidi spoofing, lookalike digits), malicious documents, oversized and NUL payloads, PII in logs, runaway paid loops. Fixes include a streaming body-size limit, NUL handling end to end, API security headers, a Trojan-Source guard, and a deterministic **`redact` PII step**. Findings and residual risks are in [docs/SECURITY_TESTING.md](docs/SECURITY_TESTING.md) |
+| **Case studies** | Three end-to-end scenarios with evaluation datasets and measured results: [late-order resolution](cases/support/) (8/8), [policy assistant](cases/research/) (27/28 on PostgreSQL), [VIP delay sweep](cases/ops/) (5/5). See [cases/](cases/) |
 | **Dashboard** | Next.js + TypeScript (strict) + Tailwind, with a **BFF that keeps tokens in httpOnly cookies** (CSRF header, refresh rotation). Covers workflows and deployments, execution timelines with agent traces and citations, the **approvals inbox**, knowledge search, tools and policy, usage and budget, and the audit log |
 | **API quality** | Versioned `/api/v1`, OpenAPI at `/docs`, uniform error envelope, request-ID propagation, structured JSON logs, liveness and readiness probes |
 | **Engineering** | Alembic migrations with a drift test; strict mypy; ruff (incl. bandit rules); CI on real PostgreSQL; Dockerfile (non-root) + compose stack |
@@ -100,7 +101,7 @@ Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
 
 ## Roadmap
 
-Cloud deployment (AWS, optional) → three customer case studies → portfolio polish. Details and acceptance criteria are in
+Portfolio polish (Phase 19); cloud deployment on AWS is optional (free hosting is set up). Details and acceptance criteria are in
 [docs/BACKLOG.md](docs/BACKLOG.md).
 
 ## Docs

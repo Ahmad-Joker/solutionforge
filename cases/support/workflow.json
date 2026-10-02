@@ -1,0 +1,57 @@
+{
+  "start": "order",
+  "inputs": {
+    "order": {"type": "string", "description": "Order reference, e.g. O-50011"},
+    "message": {"type": "string", "description": "The customer's message (may contain PII)"}
+  },
+  "limits": {"max_steps": 30, "max_cost_usd": "0.05"},
+  "steps": [
+    {"id": "order", "type": "tool",
+     "config": {"tool": "orders.get_order", "args": {"order_ref": "$.input.order"}}, "next": "customer"},
+    {"id": "customer", "type": "tool",
+     "config": {"tool": "crm.get_customer", "args": {"customer_ref": "$.steps.order.result.customer_ref"}},
+     "next": "clean"},
+    {"id": "clean", "type": "redact", "config": {"value": "$.input.message"}, "next": "route"},
+    {"id": "route", "type": "condition", "config": {
+      "branches": [
+        {"when": {"all": [
+          {"path": "$.steps.order.result.days_late", "op": "gte", "value": 5},
+          {"path": "$.steps.order.result.customer_tier", "op": "in", "value": ["gold", "platinum"]}
+        ]}, "goto": "credit"},
+        {"when": {"path": "$.steps.order.result.days_late", "op": "gte", "value": 1}, "goto": "ticket"}
+      ],
+      "default": "on_time"}},
+    {"id": "credit", "type": "tool",
+     "config": {"tool": "payments.issue_refund", "args": {
+       "order_ref": "$.input.order", "amount_cents": 2500,
+       "reason": "Goodwill credit: order {{ $.steps.order.result.days_late }} days late"}},
+     "next": "ticket"},
+    {"id": "ticket", "type": "tool",
+     "config": {"tool": "ticketing.create_ticket", "args": {
+       "customer_ref": "$.steps.order.result.customer_ref",
+       "subject": "Late order {{ $.input.order }} ({{ $.steps.order.result.days_late }} days)",
+       "body": "{{ $.steps.clean.value }}",
+       "priority": "high"}},
+     "next": "reply"},
+    {"id": "reply", "type": "llm", "config": {
+       "model": "mock:mock-1",
+       "system": "You write short, warm apology emails for a retailer. Never promise refunds; the credit decision is made separately.",
+       "prompt": "Order {{ $.input.order }} is {{ $.steps.order.result.days_late }} days late (reason: {{ $.steps.order.result.delay_reason }}). Customer wrote (PII redacted): {{ $.steps.clean.value }}",
+       "output_schema": {"type": "object", "required": ["subject", "body"], "additionalProperties": false,
+         "properties": {"subject": {"type": "string", "minLength": 3, "maxLength": 120},
+                        "body": {"type": "string", "minLength": 3, "maxLength": 2000}}}},
+     "next": "draft"},
+    {"id": "draft", "type": "tool",
+     "config": {"tool": "email.draft_message", "args": {
+       "to": "$.steps.customer.result.email",
+       "subject": "$.steps.reply.json.subject",
+       "body": "$.steps.reply.json.body"}},
+     "next": "send"},
+    {"id": "send", "type": "tool",
+     "config": {"tool": "email.send_message", "args": {"message_id": "$.steps.draft.result.message_id"}},
+     "next": "done"},
+    {"id": "done", "type": "transform", "config": {"set": {"route": "contacted"}}},
+    {"id": "on_time", "type": "transform", "config": {"set": {"route": "on_time"}}}
+  ],
+  "output": {"route": "$.state.route"}
+}
