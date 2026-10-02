@@ -14,12 +14,12 @@
 ```bash
 cd apps/api
 pytest -n auto                          # SQLite, parallel (~1.5–3 min)
-SF_TEST_DATABASE_URL=postgresql+asyncpg://… pytest   # PostgreSQL, serial
+SF_TEST_DATABASE_URL=postgresql+asyncpg://… pytest   # PostgreSQL, serial (~40 min locally)
 pytest -m security                      # security regression suite
 pytest --cov --cov-report=json && python scripts/check_coverage.py coverage.json
 
 cd ../web
-npm run build && cp -r .next/static .next/standalone/.next/
+npm run build                           # postbuild copies static assets into standalone
 SF_PYTHON=python npx playwright test    # starts a throwaway API + web server
 ```
 
@@ -27,9 +27,21 @@ SF_PYTHON=python npx playwright test    # starts a throwaway API + web server
 
 - Overall line+branch coverage ≥ **90%** (currently 94%).
 - Per-module ≥ **90%** for security-critical code: `security/`, tenancy, authz, auth, org
-  service, approvals, tool policy, executor, engine, transitions (`scripts/check_coverage.py`).
+  service, approvals, evaluation and the deploy gate, tool policy, executor, engine,
+  transitions (`scripts/check_coverage.py`).
 - `pytest -m security` must not skip anything on PostgreSQL.
 - Lint (ruff), types (mypy strict, `tsc --noEmit`), `pip-audit`, a migration round trip.
+
+A throwaway PostgreSQL for local runs:
+
+```bash
+docker run -d --name sf-pgtest -e POSTGRES_USER=sf -e POSTGRES_PASSWORD=sf -e POSTGRES_DB=sf   -p 127.0.0.1:55432:5432 pgvector/pgvector:pg16
+```
+
+**Why both backends matter.** The first PostgreSQL run (2026-10-02) found a
+production-only defect that the SQLite runs had hidden for several phases: keyword search
+ANDed every term. See [RETRIEVAL.md](RETRIEVAL.md). Treat the SQLite run as a fast inner
+loop, not as evidence about production behaviour.
 
 ## Conventions that keep tests trustworthy
 

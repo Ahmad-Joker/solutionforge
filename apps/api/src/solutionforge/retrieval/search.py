@@ -22,6 +22,7 @@ from enum import StrEnum
 from typing import Any
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import TSQUERY
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from solutionforge.domain.knowledge import Chunk, Document
@@ -130,7 +131,12 @@ class Retriever:
         self, s: AsyncSession, scope: list[Any], query: str, k: int, pg: bool
     ) -> list[tuple[uuid.UUID, float]]:
         if pg:
-            tsq = sa.func.websearch_to_tsquery("english", query)
+            # websearch_to_tsquery ANDs every term, so a natural-language question only
+            # matches chunks containing *all* of its words (measured: recall@5 0.58 on the
+            # benchmark). Keep its safe parsing (stemming, stop words, phrases, negation) but
+            # OR the terms, like BM25 does, and let ts_rank_cd reward chunks covering more.
+            parsed = sa.cast(sa.func.websearch_to_tsquery("english", query), sa.Text)
+            tsq = sa.cast(sa.func.replace(parsed, " & ", " | "), TSQUERY)
             tsv = sa.func.to_tsvector("english", Chunk.text)
             rank = sa.func.ts_rank_cd(tsv, tsq)
             rows = await s.execute(

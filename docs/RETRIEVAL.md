@@ -24,7 +24,8 @@ failure ─► retry with backoff ─► after 3 attempts: status = failed (dead
   cosine distance (`m=16, ef_construction=64`) and a GIN full-text expression index.
 - **Strategies** (`retrieval/search.py`):
   - **dense:** pgvector `<=>`, with a relevance floor;
-  - **keyword:** `websearch_to_tsquery` + `ts_rank_cd` on PostgreSQL, Okapi BM25 elsewhere;
+  - **keyword:** on PostgreSQL, `websearch_to_tsquery` parsing with its terms **OR-ed**,
+    ranked by `ts_rank_cd`; Okapi BM25 elsewhere;
   - **hybrid:** Reciprocal Rank Fusion (k=60) over the top `max(4·k, 20)` of each list.
 
   Metadata filters are applied in SQL.
@@ -59,6 +60,30 @@ retrieval returns nothing, no model is called: the answer is `insufficient_conte
 | dense | 24 | 0.896 | 1.000 | 1.000 | 0.958 |
 | keyword | 24 | 0.979 | 1.000 | 1.000 | 1.000 |
 | hybrid | 24 | 0.979 | 1.000 | 1.000 | 1.000 |
+
+**PostgreSQL 16 + pgvector (production path).** Same corpus and queries, measured
+2026-10-02 by the same test against `pgvector/pgvector:pg16`. Dense uses the HNSW index;
+keyword uses PostgreSQL full-text search.
+
+| strategy | queries | recall@1 | recall@3 | recall@5 | MRR |
+|---|---|---|---|---|---|
+| dense | 24 | 0.896 | 1.000 | 1.000 | 0.958 |
+| keyword | 24 | 0.896 | 1.000 | 1.000 | 0.951 |
+| hybrid | 24 | 0.938 | 1.000 | 1.000 | 0.972 |
+
+> **Bug found by the first PostgreSQL run.** The keyword path originally used
+> `websearch_to_tsquery` as-is. That ANDs every term, so a natural-language question
+> matched only chunks containing *all* its words: keyword recall@5 was **0.583** (MRR
+> 0.583), against 1.000 on the SQLite/BM25 path. The SQLite numbers had been hiding a
+> production-only defect. Terms are now OR-ed, keeping websearch parsing (stemming, stop
+> words, quoted phrases, negation). The PostgreSQL table above is after the fix. Keyword
+> ranking still differs from BM25 (`ts_rank_cd` is cover density, not BM25), which is why
+> the two backends don't produce identical numbers.
+>
+> A second backend difference: PostgreSQL's `english` text-search parser treats HTML/XML
+> tags as markup, so words *inside* tags (`<img src=… onerror=…>`) aren't keyword-searchable
+> there, while the BM25 path indexes them. Text between tags is indexed on both, and dense
+> search sees everything.
 
 ### Dense relevance floor (calibration)
 

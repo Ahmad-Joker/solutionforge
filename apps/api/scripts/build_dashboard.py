@@ -34,7 +34,7 @@ ROWS: list[tuple[str, list[tuple[str, str, list[tuple[str, str]]]]]] = [
                 "percentunit",
                 [
                     (
-                        'sum(rate(sf_http_requests_total{status=~"5.."}[5m]))'
+                        '(sum(rate(sf_http_requests_total{status=~"5.."}[5m])) or vector(0))'
                         " / clamp_min(sum(rate(sf_http_requests_total[5m])), 1e-9)",
                         "5xx",
                     ),

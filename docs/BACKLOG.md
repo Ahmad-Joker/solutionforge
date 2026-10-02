@@ -30,7 +30,7 @@ Acceptance criteria:
 - [x] Health (`/healthz`) and readiness (`/readyz`, DB check) probes.
 - [x] Uniform error envelope with request IDs; no input echo, no stack traces.
 - [x] Tests: unit + integration + security (tenant isolation, RBAC matrix, token attacks, races).
-- [ ] Suite executed against PostgreSQL. **Configured in CI, not yet run** (no Docker/Postgres on the dev machine).
+- [x] Suite executed against PostgreSQL 16 + pgvector (2026-10-02, locally via Docker; also in CI), including the append-only audit trigger test.
 
 ## Phase 2 — Workflow execution engine ✅
 
@@ -160,7 +160,7 @@ execution timeline; approvals inbox; eval comparison view.
 - [x] Hypothesis property tests (expressions, policy, chunking)
 - [x] Coverage gates: ≥90% overall and ≥90% per critical module (`scripts/check_coverage.py`)
 - [x] Playwright E2E through the real BFF and API with an embedded worker (CI job)
-- [ ] PostgreSQL-only paths executed locally (CI only so far)
+- [x] PostgreSQL-only paths executed locally (2026-10-02)
 
 ## Phase 11 — Evaluation framework ✅
 
@@ -197,8 +197,19 @@ Original plan:
 OpenTelemetry traces (HTTP → workflow → step → model/tool), Prometheus metrics (RED, token/cost,
 queue depth), Grafana dashboards as code.
 
-## Phase 13 — Docker (full stack incl. worker, web, observability)
-## Phase 14 — GitHub Actions: release pipeline (build → test → eval → staging → smoke → prod, rollback)
+## Phase 13 — Docker (full stack incl. worker, web, observability) ✅
+
+- [x] Compose stack: postgres(pgvector), redis, migrate, api, 2× worker, web; observability profile (Prometheus, Grafana, Jaeger)
+- [x] Verified locally from scratch: all containers healthy; smoke test passes (worker replica ran tool + LLM steps); Prometheus scrapes api + both workers, 7 alert rules healthy, all dashboard queries valid; Grafana provisioned; one Jaeger trace spans api → worker
+- [x] Full test suite executed against PostgreSQL 16 + pgvector (previously CI-only) — found and fixed a production-only retrieval bug (see RETRIEVAL.md)
+- [ ] Image vulnerability scanning (Trivy) and image size budget
+## Phase 14 — Release pipeline ✅ (cloud stages gated on Phase 15)
+
+- [x] `release.yml`: reused full CI → container smoke test → GHCR publish (digests, provenance, SBOM) → staging → smoke → production (required reviewers) → smoke → automatic rollback
+- [x] `scripts/smoke.py` post-deploy check (verified against a local server and the compose stack)
+- [x] `infra/deploy/deploy.sh` contract (expand/contract migrations, digest rollouts, rollback); refuses to run until a target exists
+- [ ] Pipeline executed on GitHub (needs the repository pushed to GitHub)
+- [ ] Deploy implementation + staging/production environments (Phase 15)
 ## Phase 15 — Cloud deployment (AWS: ECS Fargate + RDS + ElastiCache; Terraform stretch goal)
 ## Phase 16 — Security testing ✅
 

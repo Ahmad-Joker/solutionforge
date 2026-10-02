@@ -45,11 +45,68 @@ In production, terminate TLS in front of the web app so cookies get the `Secure`
 
 ```bash
 cp .env.example .env
-docker compose up --build      # postgres(pgvector) → migrate → api ; redis
-curl localhost:8000/readyz
+docker compose up --build --wait   # postgres(pgvector), redis → migrate → api, 2× worker, web
+python apps/api/scripts/smoke.py http://localhost:8000 --dev
 ```
 
-The `migrate` service runs `alembic upgrade head` once and exits. `api` starts only after it succeeds.
+The `migrate` service runs `alembic upgrade head` once and exits. `api` and the workers
+start only after it succeeds. The web dashboard is on http://localhost:3000.
+
+**Verified (2026-10-02, Docker 29.6):** the stack builds from scratch and every container
+reports healthy. The smoke test passes against it: a workflow ran on one of the two worker
+replicas with a tool call and a metered LLM call, and tenant isolation held. The
+`observability` profile was also verified:
+- Prometheus scraped the API and **both** worker replicas (DNS discovery);
+- all 7 alert rules loaded healthy;
+- all 19 dashboard expressions are valid PromQL against live data;
+- Grafana provisioned the dashboard and both data sources;
+- Jaeger showed a single trace running from the API container into a worker container
+  (request → execution → steps → tool / LLM).
+
+## Smoke test
+
+`apps/api/scripts/smoke.py <base-url> [--metrics-token T] [--dev]` is the post-deploy check
+the release pipeline runs. It needs only `httpx`. It creates a throwaway user and org, then
+covers:
+- probes;
+- security headers;
+- auth required;
+- `/metrics` not public (skipped with `--dev`);
+- a full workflow run through the worker, including a tool call and a metered LLM call
+  (mock provider, so no spend);
+- cross-tenant access denied.
+
+Exit code 0 means healthy.
+
+## Release pipeline
+
+`.github/workflows/release.yml` runs on a `v*.*.*` tag or a manual trigger:
+
+1. **Full CI** (the CI workflow, reused). Covers:
+   - lint and types;
+   - unit, integration and security tests on PostgreSQL with coverage gates;
+   - SQLite, web and E2E jobs;
+   - `pip-audit`, `npm audit` and the secret scan.
+2. **Container smoke test:** builds the images, starts the compose stack in CI, runs the
+   smoke test and checks the web login page. This is the "eval" gate for the platform
+   itself.
+3. **Publish:** pushes `api` and `web` to GHCR with provenance and SBOM attestations. Later
+   stages deploy by **digest**, never by mutable tag.
+4. **Staging:** `infra/deploy/deploy.sh staging <digests>`, then the smoke test against
+   `STAGING_URL`.
+5. **Production:** a GitHub environment with required reviewers (a human approves), then
+   deploy and smoke test. **If the production smoke test fails, it automatically runs
+   `deploy.sh production --rollback`.**
+
+Stages 4–5 run only when the repository variable `DEPLOY_ENABLED` is `"true"`.
+`infra/deploy/deploy.sh` documents the contract:
+- migrations are expand/contract, so a rollback never needs a down-migration;
+- services roll by digest;
+- the script waits for health;
+- `--rollback` redeploys the previous digests.
+
+Until a cloud target exists (Phase 15), the script **refuses to run** rather than
+pretending to deploy.
 
 ## Image
 

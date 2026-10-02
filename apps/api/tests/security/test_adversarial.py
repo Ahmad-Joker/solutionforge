@@ -252,7 +252,8 @@ async def test_hostile_document_content_is_stored_inert(
     await ingestor.run_until_idle()
     r = await client.post(
         f"{base}/knowledge-bases/{kb}/search",
-        json={"query": "img src onerror script", "strategy": "keyword"},
+        # Text *between* tags: PostgreSQL's full-text parser treats tags themselves as markup.
+        json={"query": "alert title", "strategy": "keyword"},
         headers=owner.headers,
     )
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/json")

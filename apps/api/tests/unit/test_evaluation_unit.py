@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from hypothesis import given
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
@@ -118,6 +118,7 @@ def test_percentile_is_nearest_rank() -> None:
     assert percentile(vals, 50) == 10.0 and percentile(vals, 95) == 19.0
 
 
+@settings(suppress_health_check=[HealthCheck.too_slow])  # float lists; slow on busy CI hosts
 @given(st.lists(st.floats(min_value=0, max_value=1e6), min_size=1, max_size=50))
 def test_percentile_returns_an_observed_value(values: list[float]) -> None:
     for p in (1, 50, 95, 100):

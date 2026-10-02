@@ -2,7 +2,7 @@
 
 **A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
 
-> **Project status: Phases 0–12 and 16 of 19 complete.** This README only describes what exists and is
+> **Project status: Phases 0–14 and 16 of 19 complete** (Phase 14's cloud deploy stages wait on Phase 15). Verified on PostgreSQL 16 + pgvector and as a full Docker stack. This README only describes what exists and is
 > tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
 > [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
 > once they exist and are measured.
@@ -100,8 +100,8 @@ Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
 
 ## Roadmap
 
-Docker hardening → cloud deployment → security and load
-testing → three customer case studies. Details and acceptance criteria are in
+Cloud deployment (AWS) → load testing with measured p50/p95/p99 → three customer case
+studies → portfolio polish. Details and acceptance criteria are in
 [docs/BACKLOG.md](docs/BACKLOG.md).
 
 ## Docs

@@ -20,13 +20,16 @@ SF_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 docker compose --profile obser
 
 All three UIs are bound to `127.0.0.1` only.
 
-> **Status:** the compose profile and Grafana provisioning are written but **not yet run**,
-> because Docker isn't available on the development machine. The pieces that are verified
-> are:
-> - the emitted metrics and the `/metrics` endpoint (integration tests);
-> - the trace structure and span contents (in-memory exporter tests);
-> - every dashboard and alert expression referencing a metric that really exists (a unit
->   test).
+> **Status: verified end to end on 2026-10-02.**
+> - Prometheus scraped the API and both worker replicas.
+> - All 7 alert rules loaded healthy.
+> - All 19 dashboard expressions ran against live data without errors. Three were empty
+>   only because no 5xx errors, policy denials or gate decisions had occurred yet.
+> - Grafana provisioned the dashboard and both data sources.
+> - Jaeger showed one trace spanning the API and worker containers.
+>
+> This was in addition to the integration tests for metrics, `/metrics` access and span
+> content.
 
 ## Traces
 
