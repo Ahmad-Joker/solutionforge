@@ -206,7 +206,7 @@ function GatePanel({ org, wf, datasets }: { org: string; wf: Workflow; datasets:
   return (
     <Card
       title="Deployment quality gate"
-      actions={<Badge value={gate.data?.policy ? "ok" : "cancelled"} />}
+      actions={<Badge value={gate.data?.policy ? "armed" : "off"} />}
     >
       <ErrorBanner error={act.error} />
       <p className="mb-2 text-sm text-slate-600">

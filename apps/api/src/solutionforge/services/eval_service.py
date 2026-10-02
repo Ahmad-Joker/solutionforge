@@ -155,7 +155,7 @@ async def add_case(
         dataset_id=dataset_id,
         name=name,
         input=input,
-        expectations=exp.model_dump(mode="json", exclude_none=True),
+        expectations=exp.model_dump(mode="json", exclude_none=True, exclude_defaults=True),
         tags=tags,
     )
     session.add(case)

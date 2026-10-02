@@ -69,6 +69,8 @@ const STATUS_COLORS: Record<string, string> = {
   ready: "bg-emerald-100 text-emerald-800",
   approved: "bg-emerald-100 text-emerald-800",
   ok: "bg-emerald-100 text-emerald-800",
+  armed: "bg-emerald-100 text-emerald-800",
+  off: "bg-slate-100 text-slate-600",
   running: "bg-blue-100 text-blue-800",
   queued: "bg-slate-100 text-slate-700",
   pending: "bg-amber-100 text-amber-800",

@@ -1,11 +1,54 @@
 # SolutionForge
 
-**A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
+[![CI](https://github.com/Ahmad-Joker/solutionforge/actions/workflows/ci.yml/badge.svg)](https://github.com/Ahmad-Joker/solutionforge/actions/workflows/ci.yml)
 
-> **Project status: Phases 0–14 and 16–18 of 19 complete** (Phase 14's cloud deploy stages wait on Phase 15). Verified on PostgreSQL 16 + pgvector and as a full Docker stack. This README only describes what exists and is
-> tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
-> [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
-> once they exist and are measured.
+**A multi-tenant platform for running AI workflows that touch real systems (refunds, emails,
+customer data) with the guarantees enforced by code, not by prompts.** Every action is
+permission-checked, risky ones wait for a human, every version is evaluated before it ships,
+and every run is traceable end to end.
+
+![Approvals inbox: a high-risk refund proposed by a workflow waits for a second person](docs/images/approvals.png)
+
+## Why it exists
+
+A model that *suggests* a refund is harmless. A model that *issues* one needs the same
+controls as any other employee:
+
+- **Authorization:** acting as the person who started the workflow, re-checked on every
+  call.
+- **Approval:** a human signs off on money and outbound messages, and a different person
+  does so for high-risk ones (four-eyes).
+- **Evidence:** answers are tied to sources, and actions to an append-only audit trail.
+- **Regression control:** a new version can't reach production if it does worse on the
+  evaluation set.
+
+SolutionForge puts those controls in the platform, so each workflow doesn't have to
+reinvent them. Its tests script the model to **obey an attacker**, and the controls still
+hold.
+
+## Proof, measured rather than claimed
+
+| | Result | Where |
+|---|---|---|
+| Test suite | 674 tests (unit, integration, security, property-based) + Playwright E2E. Runs in CI on **PostgreSQL 16 + pgvector** and SQLite. Coverage gate ≥ 90% overall and per security-critical module | [TESTING](docs/TESTING.md) |
+| Prompt injection | Poisoned documents, tool output and messages, with the model scripted to comply: no refund executed, no email sent | [SECURITY_TESTING](docs/SECURITY_TESTING.md) |
+| Red-team findings | 9 real issues found and fixed (DoS via body size, NUL bytes wedging executions, Unicode header injection, …) | [SECURITY_TESTING](docs/SECURITY_TESTING.md) |
+| Retrieval (PostgreSQL) | hybrid recall@1 **0.938**, recall@3 **1.0**, MRR **0.972** on a labelled benchmark. The first Postgres run caught a production-only bug | [RETRIEVAL](docs/RETRIEVAL.md) |
+| Load (4-core laptop) | SLO (p95 < 300 ms reads) held at **~68–100 req/s**. **0% errors** up to saturation, graceful 503s at 3× overload. Found and fixed a pool deadlock | [PERFORMANCE](docs/PERFORMANCE.md) |
+| Case studies | Support **8/8**, policy assistant **27/28**, ops sweep **5/5** (PostgreSQL) | [cases/](cases/) |
+| Observability | One trace from HTTP request → queue → worker → tool/LLM, verified in Jaeger across containers | [OBSERVABILITY](docs/OBSERVABILITY.md) |
+
+Every number above comes from a run that's described, reproducible, and kept in the repo.
+Where a result is limited (laptop hardware, mock model), the page says so.
+
+## See it
+
+| | |
+|---|---|
+| ![Overview](docs/images/overview.png) | ![Execution timeline paused at the refund step](docs/images/execution.png) |
+| **Overview:** workflows, pending approvals, executions, metered spend | **Execution timeline:** each step's attempts; paused for approval |
+| ![Evaluation](docs/images/evaluation.png) | ![Audit log](docs/images/audit.png) |
+| **Evaluation:** datasets, measured metrics, the deploy gate | **Audit log:** append-only, secrets redacted |
 
 ## What's built
 
@@ -31,81 +74,91 @@
 | **API quality** | Versioned `/api/v1`, OpenAPI at `/docs`, uniform error envelope, request-ID propagation, structured JSON logs, liveness and readiness probes |
 | **Engineering** | Alembic migrations with a drift test; strict mypy; ruff (incl. bandit rules); CI on real PostgreSQL; Dockerfile (non-root) + compose stack |
 
+
 ## Architecture
 
 ```mermaid
 flowchart LR
-  C[Client] --> MW[Request ID / logging] --> A[Auth] --> T[Tenant resolution] --> R[/api/v1 routers/]
-  R --> S[Services: permission checks + audit]
-  S --> DB[(PostgreSQL + pgvector)]
-  S --> WF[Workflow engine + worker] --> DB
-  WF -. planned .-> P[Policy engine] -. planned .-> H[Approval inbox]
+  B[Browser] --> W[Next.js dashboard<br/>BFF · httpOnly cookies · CSRF]
+  W --> A[FastAPI /api/v1<br/>auth · tenancy · RBAC · request guard]
+  A --> S[Services<br/>permission checks · audit in the same transaction]
+  S --> DB[(PostgreSQL 16<br/>+ pgvector)]
+  A -. enqueue .-> Q[[executions queue<br/>in Postgres]]
+  Q --> WK[Workers<br/>leases · fenced checkpoints]
+  WK --> T[Tool executor<br/>validate · policy gate · approvals · exactly-once]
+  WK --> L[LLM service<br/>structured output · budgets · metering]
+  WK --> R[Retrieval<br/>HNSW + full-text + RRF]
+  T --> X[(Simulated CRM · orders ·<br/>ticketing · email · payments)]
+  A & WK -. OTLP traces .-> J[Jaeger]
+  P[Prometheus] -. scrape .-> A & WK
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full component diagram, domain model, API
-boundaries and the durable workflow execution model. Key decisions are recorded as
-[ADRs](docs/adr/).
+The details are in [ARCHITECTURE.md](ARCHITECTURE.md), and the decisions behind them in
+[12 ADRs](docs/adr/).
 
 ## Quick start
 
-**With Docker** (PostgreSQL + Redis + migrations + API):
+**The full stack** (Docker): PostgreSQL + pgvector, Redis, migrations, the API, two
+workers and the dashboard:
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose up --build --wait
+python apps/api/scripts/smoke.py http://localhost:8000 --dev          # end-to-end check
+python apps/api/scripts/demo_setup.py http://localhost:8000 demo.json   # demo org + case studies
 ```
 
-Then open http://localhost:3000 for the dashboard and http://localhost:8000/docs for the API.
+Open http://localhost:3000 to sign up, or log in with the credentials in `demo.json`. The
+API docs are at http://localhost:8000/docs. Add `--profile observability` to also get
+Grafana on :3001, Prometheus on :9090 and Jaeger on :16686.
 
-**Without Docker** (Python 3.12+; tests use SQLite automatically):
+**Free hosting** on Render + Supabase, $0: see [docs/DEPLOY_FREE.md](docs/DEPLOY_FREE.md).
+
+**Tests only** (Python 3.12, no Docker needed):
 
 ```bash
-cd apps/api
-python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-pytest
+cd apps/api && pip install -e ".[dev]" && pytest -n auto
 ```
 
-A walkthrough of the API flow (register → login → create org → invite → audit) is in [API.md](API.md).
+No API keys are needed anywhere. The default model is a deterministic mock. Set
+`SF_ANTHROPIC_API_KEY` to use Claude models.
 
-## Testing
+## Repository map
 
-```bash
-cd apps/api
-pytest                      # full suite (SQLite)
-pytest -m security          # security regression suite only
-SF_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/sf_test pytest   # PostgreSQL
+```
+apps/api/            FastAPI service, workers, migrations, tests, scripts (smoke, load, case studies)
+apps/web/            Next.js dashboard + BFF, Playwright E2E
+cases/               3 customer case studies: workflow + evaluation dataset + measured write-up
+load/                k6 load tests and raw results
+infra/               Dockerfiles, observability (Prometheus, Grafana, alerts), deploy hook
+docs/                Architecture deep-dives, ADRs, testing, security testing, performance
+render.yaml          Free-tier deployment blueprint
 ```
 
-| Suite | What it proves |
-|---|---|
-| `tests/unit` | RBAC matrix is monotonic; token forgery (alg=none, wrong key/aud/iss/typ) fails; redaction; config refuses weak secrets |
-| `tests/integration` | Auth lifecycle, refresh rotation and reuse detection, invitations, role rules, audit trail, migration drift, **concurrent refresh / registration races resolve to exactly one winner** |
-| `tests/integration/test_engine.py` | Branching, loops stopped by the step budget, timeouts, retries/backoff, fallbacks, **crash-and-resume on another worker**, poison pills, **a stale worker can't overwrite**, a single claim under contention, and the worker loop |
-| `tests/unit/test_llm.py`, `test_claude_adapter.py` | Pricing math, repair, backoff, fallback, breaker, budgets; the Anthropic adapter driven through the real SDK over a mock HTTP transport; the vendor-import boundary |
-| `tests/security` | Every tenant route attacked cross-tenant (incl. confused deputy); full role × endpoint matrix over HTTP; append-only audit on PostgreSQL |
+## Honest limitations
 
-The schema is always created by running the real Alembic migrations, never `create_all`.
+- **Model quality hasn't been measured.** The case studies and tests use a deterministic
+  mock model, so they prove the platform's controls, not writing quality. The evaluation
+  framework is ready for a real model.
+- **Hardware.** Performance numbers come from a laptop shared with the load generator.
+- **The AWS deployment is designed, not applied.** Free hosting (Render + Supabase) is
+  fully set up and rehearsed.
+- **Not built yet:** PostgreSQL row-level security (deferred; see ADR-0011), semantic
+  embeddings (the embedder is lexical), NER-based PII detection, a built-in scheduler.
 
-## CI
-
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs ruff, mypy (strict), `pip-audit`,
-the full suite on PostgreSQL (pgvector image) with coverage, a check that **security tests were
-not skipped**, a migration downgrade/upgrade round trip, the suite on SQLite, and a Docker build.
+The full backlog is in [docs/BACKLOG.md](docs/BACKLOG.md).
 
 ## Tech stack
 
 Python 3.12 · FastAPI · Pydantic v2 · SQLAlchemy 2 (async) · Alembic · PostgreSQL 16 + pgvector ·
-Redis · Argon2 · PyJWT · structlog · pytest · ruff · mypy · Docker · GitHub Actions.
-Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
-
-## Roadmap
-
-Portfolio polish (Phase 19); cloud deployment on AWS is optional (free hosting is set up). Details and acceptance criteria are in
-[docs/BACKLOG.md](docs/BACKLOG.md).
+Redis · Anthropic SDK · OpenTelemetry · Prometheus · Grafana · Jaeger · Next.js 16 · TypeScript ·
+Tailwind · pytest · Hypothesis · Playwright · k6 · ruff · mypy (strict) · Docker · GitHub Actions ·
+Render · Supabase
 
 ## Docs
 
 [ARCHITECTURE](ARCHITECTURE.md) · [SECURITY](SECURITY.md) (threat model) · [API](API.md) ·
-[DEPLOYMENT](DEPLOYMENT.md) · [FREE DEPLOY](docs/DEPLOY_FREE.md) · [EVALUATION](docs/EVALUATION.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) · [SECURITY TESTING](docs/SECURITY_TESTING.md) · [PERFORMANCE](docs/PERFORMANCE.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
-[CONTRIBUTING](CONTRIBUTING.md) · [ADRs](docs/adr/) · [Backlog](docs/BACKLOG.md)
+[DEPLOYMENT](DEPLOYMENT.md) · [FREE DEPLOY](docs/DEPLOY_FREE.md) · [EVALUATION](docs/EVALUATION.md) ·
+[OBSERVABILITY](docs/OBSERVABILITY.md) · [SECURITY TESTING](docs/SECURITY_TESTING.md) ·
+[PERFORMANCE](docs/PERFORMANCE.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
+[CASE STUDIES](cases/) · [CONTRIBUTING](CONTRIBUTING.md) · [ADRs](docs/adr/) · [BACKLOG](docs/BACKLOG.md)

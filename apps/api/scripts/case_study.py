@@ -160,12 +160,13 @@ async def run_case_study(
     )["id"]
 
     async def finished() -> bool:
-        return (await c.get(f"{o}/evaluation/runs/{run}", headers=h)).json()[
-            "status"
-        ] == "completed"
+        status: str = (await c.get(f"{o}/evaluation/runs/{run}", headers=h)).json()["status"]
+        return status == "completed"
 
     await _wait(drain, finished, wait_seconds)
-    detail = await _ok(await c.get(f"{o}/evaluation/runs/{run}", headers=h), 200, "run detail")
+    detail: dict[str, Any] = await _ok(
+        await c.get(f"{o}/evaluation/runs/{run}", headers=h), 200, "run detail"
+    )
     cases = {
         x["id"]: x["name"]
         for x in await _ok(

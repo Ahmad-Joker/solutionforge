@@ -235,7 +235,13 @@ Findings and residual risks: [SECURITY_TESTING.md](SECURITY_TESTING.md).
 - [x] Evaluation fixes found while building them: approval-pending tool calls now count as *attempted* (expected/forbidden tool checks were blind to them); an input rejection now satisfies a case that expects `failed`
 - [ ] Re-measure with a real model (answer/brief quality, citation accuracy)
 - [ ] Built-in scheduler for recurring workflows (the ops sweep is API-triggered)
-## Phase 19 — Documentation & portfolio polish
+## Phase 19 — Documentation & portfolio polish ✅
+
+- [x] README rewritten for public visitors: purpose, measured proof table, real dashboard screenshots, architecture, quick start, repository map, honest limitations
+- [x] `scripts/demo_setup.py` (populated demo org) and `apps/web/scripts/screenshots.mjs` (reproducible screenshots)
+- [x] Fixed while capturing: evaluation cases stored only their specified expectations (the UI listed empty defaults); gate badge reads "off"/"armed"
+- [ ] Short demo video / GIF
+- [ ] Live demo link (after the free deployment is set up)
 
 ## Tech-debt / follow-ups discovered so far
 
