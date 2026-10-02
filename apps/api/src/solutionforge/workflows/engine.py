@@ -28,17 +28,22 @@ from datetime import timedelta
 from typing import Any
 
 import sqlalchemy as sa
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from solutionforge.core.clock import utcnow
 from solutionforge.core.logging import get_logger
 from solutionforge.domain.identity import Membership
 from solutionforge.domain.workflow import (
+    TERMINAL_STATUSES,
     Execution,
     ExecutionStatus,
     ExecutionStep,
     WorkflowVersion,
 )
+from solutionforge.observability import metrics
+from solutionforge.observability.tracing import context_from_traceparent, tracer
 from solutionforge.workflows import transitions
 from solutionforge.workflows.definition import (
     CompiledStep,
@@ -127,11 +132,21 @@ class Engine:
     async def run(self, execution_id: uuid.UUID) -> None:
         """Drive a claimed execution until it finishes, suspends, schedules a retry, or is
         taken over. Bounded by the definition's max_steps (checked every iteration)."""
-        try:
-            while await self._advance(execution_id):
-                pass
-        except LeaseLost:
-            log.warning("lease_lost", execution_id=str(execution_id), worker=self.worker_id)
+        async with self.sessionmaker() as s:
+            parent = await s.scalar(
+                sa.select(Execution.traceparent).where(Execution.id == execution_id)
+            )
+        with tracer().start_as_current_span(
+            "workflow.execution",
+            context=context_from_traceparent(parent),
+            attributes={"sf.execution_id": str(execution_id), "sf.worker_id": self.worker_id},
+        ) as span:
+            try:
+                while await self._advance(execution_id):
+                    pass
+            except LeaseLost:
+                span.add_event("lease_lost")
+                log.warning("lease_lost", execution_id=str(execution_id), worker=self.worker_id)
 
     async def run_until_idle(self, max_executions: int = 1000) -> int:
         """Process everything currently runnable (tests, CLI). Returns executions processed."""
@@ -171,9 +186,19 @@ class Engine:
         t0 = time.monotonic()
         result: StepResult | None = None
         failure: StepError | None = None
+        span = tracer().start_span(
+            f"workflow.step {step.spec.type}",
+            attributes={
+                "sf.execution_id": str(execution_id),
+                "sf.step_id": step.spec.id,
+                "sf.step_type": step.spec.type,
+                "sf.attempt": ctx.attempt,
+            },
+        )
         try:
             async with asyncio.timeout(step.spec.timeout_seconds):
-                result = await step.handler.run(step.config, ctx)
+                with trace.use_span(span, end_on_exit=False):
+                    result = await step.handler.run(step.config, ctx)
         except TimeoutError:
             failure = StepError(
                 f"step timed out after {step.spec.timeout_seconds}s", retryable=True, code="timeout"
@@ -214,6 +239,13 @@ class Engine:
                     attempt=ctx.attempt,
                     continue_status=ExecutionStatus.RUNNING,
                 )
+        span.set_attribute("sf.step_status", tr.step_status.value)
+        if failure is not None:
+            span.set_status(Status(StatusCode.ERROR, failure.code))
+        span.end()
+        metrics.STEP_DURATION.labels(step.spec.type, tr.step_status.value).observe(
+            duration_ms / 1000
+        )
         await self._checkpoint(execution_id, step, ctx.attempt, tr, started, duration_ms)
         log.info(
             "step_finished",
@@ -413,10 +445,12 @@ class Engine:
             seq = await s.scalar(stmt.returning(Execution.event_seq))
             if seq is None:
                 raise LeaseLost
+            _count_terminal(values)
             return int(seq)
         result = await s.execute(stmt)
         if result.rowcount != 1:  # type: ignore[attr-defined]
             raise LeaseLost
+        _count_terminal(values)
         return 0
 
     async def _finish(
@@ -429,6 +463,12 @@ class Engine:
     ) -> None:
         await self._fenced_update(s, ex.id, transitions.terminal_values(status, now, error=error))
         log.info("execution_finished", execution_id=str(ex.id), status=status.value, **error)
+
+
+def _count_terminal(values: dict[str, Any]) -> None:
+    status = values.get("status")
+    if status in TERMINAL_STATUSES:
+        metrics.EXECUTIONS_FINISHED.labels(ExecutionStatus(status).value).inc()
 
 
 async def _initiator_role(s: AsyncSession, ex: Execution) -> str | None:

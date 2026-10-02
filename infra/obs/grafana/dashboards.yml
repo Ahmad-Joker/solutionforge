@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: solutionforge
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false   # dashboards are code: edit apps/api/scripts/build_dashboard.py
+    options: { path: /var/lib/grafana/dashboards }

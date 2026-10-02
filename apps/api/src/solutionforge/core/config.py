@@ -63,10 +63,23 @@ class Settings(BaseSettings):
     # Run the worker loops inside the API process (single-container demos, E2E tests).
     embedded_worker: bool = False
 
+    # Observability. Tracing is off unless an OTLP/HTTP endpoint is set (e.g. a collector or
+    # Jaeger at http://jaeger:4318). /metrics needs this bearer token; without one it is only
+    # served in dev/test. The worker serves its own metrics on worker_metrics_port if set.
+    otel_exporter_otlp_endpoint: str | None = None
+    metrics_token: SecretStr | None = None
+    worker_metrics_port: int | None = Field(default=None, ge=1024, le=65535)
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     @field_validator(
-        "jwt_secret", "anthropic_api_key", "credentials_keys", "redis_url", mode="before"
+        "jwt_secret",
+        "anthropic_api_key",
+        "credentials_keys",
+        "redis_url",
+        "metrics_token",
+        "otel_exporter_otlp_endpoint",
+        mode="before",
     )
     @classmethod
     def _blank_is_unset(cls, v: object) -> object:

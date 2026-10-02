@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from solutionforge import __version__
 from solutionforge.api import health
+from solutionforge.api import metrics as metrics_api
 from solutionforge.api.errors import install_error_handlers
 from solutionforge.api.middleware import RequestContextMiddleware
 from solutionforge.api.v1 import (
@@ -30,6 +31,7 @@ from solutionforge.core.config import Settings, get_settings
 from solutionforge.core.logging import configure_logging, get_logger
 from solutionforge.db.session import build_engine, build_sessionmaker
 from solutionforge.llm.factory import build_llm_service
+from solutionforge.observability.tracing import configure_tracing
 from solutionforge.retrieval.factory import build_retriever
 from solutionforge.security import passwords
 from solutionforge.security.ratelimit import (
@@ -45,6 +47,7 @@ from solutionforge.workflows.steps import default_registry
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level, json=settings.log_json)
+    configure_tracing("solutionforge-api", otlp_endpoint=settings.otel_exporter_otlp_endpoint)
     passwords.configure(settings.password_hash_profile)
 
     # Engines connect lazily, so building one here is cheap and keeps the app usable
@@ -115,6 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     v1.include_router(evaluation.router)
     app.include_router(v1)
     app.include_router(health.router)
+    app.include_router(metrics_api.router)
     return app
 
 

@@ -1,6 +1,7 @@
-# Local full stack: PostgreSQL (with pgvector) + Redis + migrations + API.
+# Local full stack: PostgreSQL (with pgvector) + Redis + migrations + API + workers + web.
 #   cp .env.example .env && docker compose up --build
-# Observability services (OTel collector, Prometheus, Grafana) are added in Phase 12.
+# With metrics, dashboards and traces (Prometheus :9090, Grafana :3001, Jaeger :16686):
+#   SF_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 docker compose --profile observability up --build
 
 services:
   postgres:
@@ -43,6 +44,7 @@ services:
       SF_REDIS_URL: redis://redis:6379/0
       # Trust X-Forwarded-For from the web BFF (per-IP rate limits behind the proxy).
       FORWARDED_ALLOW_IPS: "*"
+      SF_OTEL_EXPORTER_OTLP_ENDPOINT: ${SF_OTEL_EXPORTER_OTLP_ENDPOINT:-}
     ports: ["8000:8000"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -54,6 +56,8 @@ services:
     env_file: [.env]
     environment:
       SF_DATABASE_URL: postgresql+asyncpg://solutionforge:${POSTGRES_PASSWORD:-solutionforge}@postgres:5432/solutionforge
+      SF_WORKER_METRICS_PORT: "9100"   # private network only; not published
+      SF_OTEL_EXPORTER_OTLP_ENDPOINT: ${SF_OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
     deploy:
@@ -67,6 +71,35 @@ services:
       SF_API_URL: http://api:8000
     ports: ["3000:3000"]
     depends_on: [api]
+
+  # ---------------------------------------------------------------- observability profile
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    profiles: [observability]
+    volumes:
+      - ./infra/obs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/obs/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["127.0.0.1:9090:9090"]
+    depends_on: [api, worker]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    profiles: [observability]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./infra/obs/grafana/datasources.yml:/etc/grafana/provisioning/datasources/sf.yml:ro
+      - ./infra/obs/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/sf.yml:ro
+      - ./infra/obs/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["127.0.0.1:3001:3000"]
+    depends_on: [prometheus]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.64.0   # accepts OTLP/HTTP on 4318
+    profiles: [observability]
+    ports: ["127.0.0.1:16686:16686"]
 
 volumes:
   pgdata:

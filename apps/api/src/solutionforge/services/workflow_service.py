@@ -32,6 +32,7 @@ from solutionforge.domain.workflow import (
     WorkflowDeployment,
     WorkflowVersion,
 )
+from solutionforge.observability.tracing import current_traceparent
 from solutionforge.security.rbac import Permission
 from solutionforge.services import audit_service
 from solutionforge.services.audit_service import RequestMeta
@@ -398,6 +399,7 @@ def new_execution(
         run_after=utcnow(),
         evaluation_run_id=evaluation_run_id,
         evaluation_case_id=evaluation_case_id,
+        traceparent=current_traceparent(),
     )
 
 

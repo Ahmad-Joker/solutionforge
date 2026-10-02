@@ -507,7 +507,27 @@ flowchart LR
   `DeploymentDecision` row. A block is committed before the 409. See
   [docs/EVALUATION.md](docs/EVALUATION.md) and ADR-0012.
 
-## 14. Cross-cutting decisions
+## 14. Observability ✅ (Phase 12)
+
+- **Traces.** FastAPI's built-in OpenTelemetry server span is the root. `new_execution`
+  stores the active W3C `traceparent` on the row. `Engine.run` opens `workflow.execution`
+  as a child of that context, each step attempt is a `workflow.step <type>` span, and
+  `ToolExecutor.invoke` / `LLMService.generate` add `tool.invoke` / `llm.generate` spans.
+  Spans hold identifiers and numbers only.
+- **Metrics.** `observability/metrics.py` owns one registry. Counters and histograms are
+  updated at these single choke points:
+  - the HTTP middleware;
+  - the engine's fenced update (terminal statuses) and step completion;
+  - LLM metering;
+  - the tool wrapper;
+  - the gate.
+
+  Gauges are sampled from the database by a background loop. The API serves `/metrics`
+  (token-protected); the worker serves its own port.
+- **Dashboards and alerts** live in `infra/obs`. See
+  [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+
+## 15. Cross-cutting decisions
 
 - **Time:** all timestamps are timezone-aware UTC. A `UTCDateTime` column type rejects naive values.
 - **IDs:** UUIDv4 everywhere. Nothing sequential is exposed.

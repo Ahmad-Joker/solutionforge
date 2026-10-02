@@ -2,7 +2,7 @@
 
 **A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
 
-> **Project status: Phases 0–11 of 19 complete.** This README only describes what exists and is
+> **Project status: Phases 0–12 of 19 complete.** This README only describes what exists and is
 > tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
 > [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
 > once they exist and are measured.
@@ -24,6 +24,7 @@
 | **Agents** | A bounded `agent` step. The model picks allowlisted tools through a **schema-constrained action protocol**. Every call goes through the same executor and policy gate, with turn, tool-call, repeat and budget caps and a structured decision trace. Tested against a model that **obeys a prompt injection**: the refund and the email are still blocked |
 | **RAG** | Durable ingestion jobs (dead letter + retry) and structure-aware chunking with exact offsets. **pgvector HNSW + Postgres full-text + hybrid RRF** with metadata filters and a measured relevance floor. A `grounded_answer` step whose **citations are verified in code** to map to retrieved chunks. Measured recall@k / MRR in [docs/RETRIEVAL.md](docs/RETRIEVAL.md) |
 | **Evaluation & deploy gate** | Datasets of cases run against a **pinned version through the real engine**. Each case is scored in code on status, output subset/schema, expected and forbidden tools, verified citations, step and cost limits, and lexical groundedness; the run aggregates pass rate, tool accuracy, schema validity, citation accuracy, p50/p95 latency, cost per case and security cases. Versions are compared case by case. A per-workflow **quality gate inside the deploy path** blocks regressions (409 + stored decision); OWNER break-glass with an audited reason. See [docs/EVALUATION.md](docs/EVALUATION.md) |
+| **Observability** | **One OpenTelemetry trace from the HTTP request, across the queue, into the worker's steps, tool calls and LLM calls**. The request's `traceparent` is persisted on the execution, and spans never carry prompts, outputs or tool arguments (tested). Prometheus RED metrics by route template, queue depth, step, LLM (calls, tokens, cost), tool and gate metrics, with **no tenant labels** (tested). Token-protected `/metrics`, generated Grafana dashboard, alert rules, and a compose profile with Prometheus, Grafana and Jaeger. See [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) |
 | **Dashboard** | Next.js + TypeScript (strict) + Tailwind, with a **BFF that keeps tokens in httpOnly cookies** (CSRF header, refresh rotation). Covers workflows and deployments, execution timelines with agent traces and citations, the **approvals inbox**, knowledge search, tools and policy, usage and budget, and the audit log |
 | **API quality** | Versioned `/api/v1`, OpenAPI at `/docs`, uniform error envelope, request-ID propagation, structured JSON logs, liveness and readiness probes |
 | **Engineering** | Alembic migrations with a drift test; strict mypy; ruff (incl. bandit rules); CI on real PostgreSQL; Dockerfile (non-root) + compose stack |
@@ -98,12 +99,12 @@ Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
 
 ## Roadmap
 
-Observability → cloud deployment → security and load
+Docker hardening → cloud deployment → security and load
 testing → three customer case studies. Details and acceptance criteria are in
 [docs/BACKLOG.md](docs/BACKLOG.md).
 
 ## Docs
 
 [ARCHITECTURE](ARCHITECTURE.md) · [SECURITY](SECURITY.md) (threat model) · [API](API.md) ·
-[DEPLOYMENT](DEPLOYMENT.md) · [EVALUATION](docs/EVALUATION.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
+[DEPLOYMENT](DEPLOYMENT.md) · [EVALUATION](docs/EVALUATION.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
 [CONTRIBUTING](CONTRIBUTING.md) · [ADRs](docs/adr/) · [Backlog](docs/BACKLOG.md)

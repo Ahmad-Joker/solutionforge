@@ -56,6 +56,7 @@ from solutionforge.evaluation.scorers import (
     aggregate,
     score_case,
 )
+from solutionforge.observability import metrics
 from solutionforge.security.rbac import Permission, Role
 from solutionforge.services import audit_service
 from solutionforge.services.audit_service import RequestMeta
@@ -581,6 +582,9 @@ async def enforce_gate(
     )
     session.add(decision)
     await session.flush()
+    metrics.DEPLOY_DECISIONS.labels(
+        "passed" if passed else "overridden" if overridden else "blocked"
+    ).inc()
     if not passed and not overridden:
         audit_service.record(
             session,

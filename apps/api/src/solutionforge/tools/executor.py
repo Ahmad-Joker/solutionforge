@@ -25,6 +25,7 @@ from datetime import timedelta
 from typing import Any
 
 import sqlalchemy as sa
+from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -35,6 +36,8 @@ from solutionforge.domain.approvals import Approval, ApprovalStatus
 from solutionforge.domain.audit import AuditEventType
 from solutionforge.domain.policy import OrgPolicy
 from solutionforge.domain.tools import ToolCall, ToolCallStatus, ToolInstallation
+from solutionforge.observability import metrics
+from solutionforge.observability.tracing import tracer
 from solutionforge.security.crypto import CredentialCipher, CredentialError
 from solutionforge.security.rbac import Permission, Role
 from solutionforge.services import audit_service
@@ -98,6 +101,52 @@ class ToolExecutor:
         self.backoff_base_seconds = backoff_base_seconds
 
     async def invoke(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        tool_name: str,
+        args: dict[str, Any],
+        idempotency_key: str | None = None,
+        execution_id: uuid.UUID | None = None,
+        step_id: str | None = None,
+        actor_role: Role | None = None,
+        approval: ApprovalRequest | None = None,
+    ) -> ToolInvocation:
+        """Metrics + tracing around :meth:`_invoke` (arguments are never recorded)."""
+        spec = self.catalog.get(tool_name).spec if self.catalog.has(tool_name) else None
+        tool = tool_name if spec is not None else "unknown"
+        risk = spec.risk_level.value if spec is not None else "unknown"
+        t0 = time.monotonic()
+        with tracer().start_as_current_span(
+            "tool.invoke", attributes={"sf.tool": tool, "sf.tool.risk": risk}
+        ) as span:
+            # Default covers non-ToolError exits (bugs, cancellation, a dying worker) so the
+            # metrics bookkeeping below never masks the original exception.
+            outcome = "error"
+            try:
+                inv = await self._invoke(
+                    organization_id=organization_id,
+                    tool_name=tool_name,
+                    args=args,
+                    idempotency_key=idempotency_key,
+                    execution_id=execution_id,
+                    step_id=step_id,
+                    actor_role=actor_role,
+                    approval=approval,
+                )
+            except ToolError as exc:
+                outcome = exc.code
+                span.set_status(Status(StatusCode.ERROR, exc.code))
+                raise
+            else:
+                outcome = "replayed" if inv.replayed else "succeeded"
+                return inv
+            finally:
+                span.set_attribute("sf.tool.outcome", outcome)
+                metrics.TOOL_CALLS.labels(tool, risk, outcome).inc()
+                metrics.TOOL_DURATION.labels(tool).observe(time.monotonic() - t0)
+
+    async def _invoke(
         self,
         *,
         organization_id: uuid.UUID,

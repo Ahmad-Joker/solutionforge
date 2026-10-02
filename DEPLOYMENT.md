@@ -16,6 +16,9 @@ and `.env.example`).
 | `SF_REFRESH_TOKEN_TTL_SECONDS` | no | 1209600 | |
 | `SF_CREDENTIALS_KEYS` | **yes outside dev/test** | ephemeral in dev | comma-separated Fernet keys, the first one encrypts; prepend a new key to rotate. Generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `SF_REDIS_URL` | recommended in prod | unset | shared rate-limit state across replicas; unset = in-memory per process |
+| `SF_OTEL_EXPORTER_OTLP_ENDPOINT` | no | unset (tracing off) | OTLP/HTTP base URL, e.g. `http://otel-collector:4318`; traces go to `<url>/v1/traces` |
+| `SF_METRICS_TOKEN` | **yes to scrape outside dev/test** | unset | bearer token for `GET /metrics`; without it the endpoint returns 404 in staging/production |
+| `SF_WORKER_METRICS_PORT` | no | unset | worker Prometheus port (private network only) |
 | `SF_RATE_LIMIT_ENABLED` | no | `true` | |
 | `SF_LLM_ENABLE_MOCK` | no | `true` | deterministic mock provider (models `mock:mock-1`, `mock:mock-fast`, synthetic prices) |
 | `SF_ANTHROPIC_API_KEY` | no | unset | enables the `anthropic:*` models (`claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`) |

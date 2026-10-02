@@ -82,6 +82,7 @@ Interactive OpenAPI docs: `GET /docs` (schema at `/openapi.json`). All business 
 | GET/PUT/DELETE | `/orgs/{org_id}/workflows/{id}/gate` | read / `workflow:deploy` | gate policy; audited |
 | GET | `/orgs/{org_id}/workflows/{id}/deployment-decisions` | `workflow:read` | every gated deploy attempt |
 | GET | `/healthz`, `/readyz` | public | liveness / readiness (DB) |
+| GET | `/metrics` | `Bearer $SF_METRICS_TOKEN` (dev/test: open if no token) | Prometheus exposition; 404 when not authorized |
 
 ## Walkthrough
 

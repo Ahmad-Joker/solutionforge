@@ -1,0 +1,52 @@
+# Alert rules. Thresholds are starting points, not measured SLOs: tune them once real
+# traffic exists (see docs/OBSERVABILITY.md).
+groups:
+  - name: solutionforge
+    rules:
+      - alert: APIHighErrorRatio
+        expr: |
+          sum(rate(sf_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(sf_http_requests_total[5m])), 1e-9) > 0.05
+        for: 10m
+        labels: { severity: page }
+        annotations: { summary: "More than 5% of API requests are failing with 5xx" }
+
+      - alert: WorkflowQueueBacklog
+        expr: max(sf_workflow_oldest_queued_seconds) > 300
+        for: 5m
+        labels: { severity: page }
+        annotations: { summary: "A runnable execution has waited over 5 minutes (workers down or saturated)" }
+
+      - alert: WorkflowFailureSpike
+        expr: |
+          sum(rate(sf_workflow_executions_finished_total{status="failed"}[15m]))
+            / clamp_min(sum(rate(sf_workflow_executions_finished_total[15m])), 1e-9) > 0.2
+        for: 15m
+        labels: { severity: ticket }
+        annotations: { summary: "Over 20% of executions are failing" }
+
+      - alert: LLMProviderErrors
+        expr: |
+          sum(rate(sf_llm_calls_total{outcome!="ok"}[10m]))
+            / clamp_min(sum(rate(sf_llm_calls_total[10m])), 1e-9) > 0.25
+        for: 10m
+        labels: { severity: ticket }
+        annotations: { summary: "Over 25% of LLM call attempts are failing (provider outage or quota)" }
+
+      - alert: LLMSpendSpike
+        expr: sum(rate(sf_llm_cost_usd_total[1h])) * 3600 > 2 * sum(rate(sf_llm_cost_usd_total[24h])) * 3600 and sum(rate(sf_llm_cost_usd_total[1h])) * 3600 > 1
+        for: 30m
+        labels: { severity: ticket }
+        annotations: { summary: "LLM spend this hour is more than double the 24h average" }
+
+      - alert: ApprovalsPilingUp
+        expr: max(sf_approvals_pending) > 50
+        for: 30m
+        labels: { severity: ticket }
+        annotations: { summary: "More than 50 approval requests are waiting for a human" }
+
+      - alert: IngestionDeadLetters
+        expr: max(sf_documents{status="failed"}) > 0
+        for: 30m
+        labels: { severity: ticket }
+        annotations: { summary: "Documents failed ingestion and need a retry" }

@@ -182,7 +182,18 @@ scorers (schema validity, tool accuracy, citation accuracy, groundedness via jud
 latency, cost, steps); v1 vs v2 vs v3 comparison; **deployment gate** that stores the decision
 and blocks regressions.
 
-## Phase 12 — Observability
+## Phase 12 — Observability ✅
+
+- [x] OTel tracing: FastAPI server spans → `workflow.execution` (continued from the persisted `traceparent`, migration 0009) → `workflow.step` → `tool.invoke` / `llm.generate`
+- [x] Span content policy (IDs/metadata only) enforced by test; trace IDs in log lines
+- [x] Prometheus metrics: HTTP RED by route template, executions, steps, LLM calls/tokens/cost/latency, tools by outcome, approvals, ingestion backlog, eval runs, gate decisions
+- [x] No tenant/user labels and bounded cardinality (tested by scraping after real traffic)
+- [x] `/metrics` bearer-token protected (hidden outside dev/test without a token); worker metrics port
+- [x] Grafana dashboard generated from code + drift test; Prometheus alert rules; compose `observability` profile (Prometheus, Grafana, Jaeger)
+- [ ] Compose profile executed end to end (needs Docker)
+- [ ] Log shipping (Loki/CloudWatch), exemplars, SLOs from measured traffic
+
+Original plan:
 OpenTelemetry traces (HTTP → workflow → step → model/tool), Prometheus metrics (RED, token/cost,
 queue depth), Grafana dashboards as code.
 

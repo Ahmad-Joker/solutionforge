@@ -6,6 +6,8 @@ import logging
 
 import structlog
 
+from solutionforge.observability.tracing import log_trace_ids
+
 
 def configure_logging(level: str = "INFO", *, json: bool = True) -> None:
     renderer: structlog.types.Processor = (
@@ -14,6 +16,7 @@ def configure_logging(level: str = "INFO", *, json: bool = True) -> None:
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
+            log_trace_ids,
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso", utc=True),
             structlog.processors.StackInfoRenderer(),

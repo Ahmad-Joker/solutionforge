@@ -133,6 +133,8 @@ class Execution(UUIDPrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     # Set for executions created by an evaluation run (excluded from nothing; traceable).
     evaluation_run_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True, index=True)
     evaluation_case_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    # W3C traceparent of the request that created it; the worker continues this trace.
+    traceparent: Mapped[str | None] = mapped_column(sa.String(64), nullable=True)
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

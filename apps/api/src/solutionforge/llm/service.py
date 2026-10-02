@@ -26,6 +26,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+
 from solutionforge.core.logging import get_logger
 from solutionforge.llm import structured
 from solutionforge.llm.breaker import CircuitBreaker
@@ -51,6 +54,8 @@ from solutionforge.llm.types import (
     Truncated,
     Usage,
 )
+from solutionforge.observability import metrics
+from solutionforge.observability.tracing import tracer
 
 log = get_logger(__name__)
 
@@ -127,6 +132,23 @@ class LLMService:
         return ref.provider in self.providers and self.prices.get(ref) is not None
 
     async def generate(self, call: LLMCall, ctx: CallContext) -> LLMResult:
+        with tracer().start_as_current_span(
+            "llm.generate",
+            attributes={
+                "sf.llm.purpose": ctx.purpose,
+                "sf.llm.models": [str(m) for m in call.models],
+            },
+        ) as span:
+            try:
+                result = await self._generate(call, ctx)
+            except LLMError as exc:
+                span.set_status(Status(StatusCode.ERROR, exc.code))
+                raise
+            span.set_attribute("sf.llm.model", str(result.model))
+            span.set_attribute("sf.llm.cost_micro_usd", result.cost_micro_usd)
+            return result
+
+    async def _generate(self, call: LLMCall, ctx: CallContext) -> LLMResult:
         if not call.models:
             raise InvalidRequest("no model specified")
         for ref in call.models:
@@ -343,6 +365,23 @@ class LLMService:
                 fallback_index=index,
                 request_id=request_id,
             )
+        )
+        labels = (ref.provider, ref.model)
+        metrics.LLM_CALLS.labels(*labels, outcome).inc()
+        metrics.LLM_TOKENS.labels(*labels, "input").inc(usage.input_tokens)
+        metrics.LLM_TOKENS.labels(*labels, "output").inc(usage.output_tokens)
+        metrics.LLM_COST.labels(*labels).inc(cost / 1_000_000)
+        metrics.LLM_DURATION.labels(*labels).observe(latency_ms / 1000)
+        trace.get_current_span().add_event(
+            "llm.attempt",
+            {
+                "model": str(ref),
+                "outcome": outcome,
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "cost_micro_usd": cost,
+                "latency_ms": latency_ms,
+            },
         )
         # Never log prompts or outputs (may contain customer data); metadata only.
         log.info(
