@@ -1,58 +1,68 @@
-# Free deployment: Vercel + Render + Neon ($0)
+# Free deployment: Render + Supabase ($0)
 
 ```
-browser ──► Vercel (Next.js dashboard + BFF, httpOnly cookies)
-                └──► Render free web service (API + embedded worker loops, Docker)
-                          └──► Neon free Postgres (pgvector)
+browser ──► Render: solutionforge-web  (Next.js dashboard + BFF, httpOnly cookies)
+                └──► Render: solutionforge-api  (API + embedded worker loops)
+                          └──► Supabase Postgres (pgvector) via the Session pooler
 ```
 
-**Rehearsed on 2026-10-02.** The exact Render configuration (production mode, `$PORT`,
-migrate-on-start, embedded worker, a Neon-shaped connection URL, 512 MB memory cap) was run
-locally in Docker, and the strict smoke test passed:
-- the worker ran a workflow, and the tool and LLM calls were metered;
-- `/metrics` was hidden, and cross-tenant access was denied;
-- memory peaked at **≈87 MB of 512 MB**;
-- a restart re-ran migrations as a no-op.
+Both Render services come from one blueprint (`render.yaml`).
 
-The web BFF was rehearsed against it. With the API stopped, every route returned a clean
-503 "API is starting up" response instead of crashing.
+**Rehearsed on 2026-10-02** with the exact blueprint settings, locally in Docker, against
+a Supabase-like Postgres. That database had Supabase's `anon`/`authenticated` roles and
+default grants, and a dotted pooler username (`postgres.<ref>`).
+- Both services served on Render's assigned `$PORT`.
+- Migrations ran on start, **and closed the Data API automatically: 0 grants left**.
+- The web server woke the API as it booted.
+- Sign-up, login (cookies `Secure; HttpOnly; SameSite=lax`) and BFF calls all worked.
+- The strict smoke test passed.
+- Memory peaked at 87 MB (API) and 38 MB (web), against 512 MB each.
 
 ## What "free" costs you
 
-| Platform | Free-tier behaviour (check each provider's current terms) | Effect on the demo |
+| Platform | Free-tier behaviour (check current terms) | Effect |
 |---|---|---|
-| Render | The service sleeps after ~15 min without requests; waking takes ~30–60 s; 512 MB RAM | The first visit after idle shows "API is starting up, retry in ~30 s". Workflows queued while it sleeps run when it wakes (the queue is in Postgres) |
-| Neon | ~0.5 GB storage; compute suspends when idle | Nothing you'll notice, beyond a sub-second first query |
-| Vercel Hobby | Non-commercial use | Fine for a portfolio demo |
+| Render (×2 services) | Each sleeps after ~15 min idle; waking takes ~30–60 s; 512 MB RAM; free instance hours are shared across services | The first visit after idle is slow. The web server wakes the API in parallel as it starts, so you pay one cold start, not two in a row. Work queued while asleep runs on wake |
+| Supabase | ~500 MB database; **the project pauses after ~1 week without activity** | If the demo has been unused for a week, open the Supabase dashboard and click **Restore** |
 
-**Don't add a "keep-alive" pinger.** While the API is awake, its worker polls the database,
-so Neon never suspends either. Pinging 24/7 would spend the free compute hours on both
-platforms. Let it sleep.
+**Don't add a keep-alive pinger.** It burns the free instance hours.
 
-The app uses the **mock** model provider, so there's no AI spend. Don't enter real customer
-data or real secrets into the demo.
+The app uses the **mock** model, so there's no AI spend. Don't put real customer data or
+real secrets in the demo.
 
 ## Steps
 
 ### 0. Put the code on GitHub
 
-Render and Vercel deploy from a GitHub repository.
-1. Create an **empty** repository on github.com (no README or license), public or private.
-2. Push this project to it.
+Create an **empty** repository on github.com (no README or license), then push this
+project to it.
 
-### 1. Database: Neon
+### 1. Database: Supabase
 
-1. Sign up at neon.tech (GitHub sign-in works).
-2. Create a project in region **AWS US West 2 (Oregon)**. That's the region the Render
-   service is pinned to in `render.yaml`.
-3. On the dashboard, open **Connect** and turn **Connection pooling OFF**. You need the
-   *direct* connection string. The pooled one sits behind PgBouncer in transaction mode,
-   which conflicts with the async driver's prepared statements.
-4. Copy the string. It looks like
-   `postgresql://user:password@ep-....us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require`.
+1. Sign up at supabase.com.
+2. **New project**, with region **East US (North Virginia)**. Both Render services are
+   pinned to Virginia in `render.yaml`.
+   - Save the database password somewhere safe.
+3. **Project Settings → Data API**: turn the Data API **off**. SolutionForge never uses it.
+   Migration `0010` also revokes the API roles' access to every table on each deploy, so
+   leaving it on isn't a data leak, but there's no reason to run it.
+4. Click **Connect** and choose the **Session pooler** connection string. Don't use:
+   - **"Direct"**: it's IPv6-only on the free tier, and Render can't reach it;
+   - **"Transaction pooler"** (port 6543): it breaks the driver's prepared statements.
 
-   Paste it **as-is**. The app converts libpq-style URLs for its async driver (tested), and
-   migrations enable `pgvector` themselves.
+   The string looks like:
+   ```
+   postgresql://postgres.<project-ref>:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+   ```
+5. Put your password in place of `[YOUR-PASSWORD]`.
+   - **Percent-encode special characters**: `@` → `%40`, `#` → `%23`, `/` → `%2F`,
+     `:` → `%3A`.
+   - **Append `?sslmode=require`.** The app converts it for its driver; this is tested.
+6. Optional belt and braces: run `infra/supabase/lockdown.sql` in the SQL editor. It's
+   the same lockdown as migration `0010`, as a script you can re-run, and its last query
+   lists any remaining grants (it should return none).
+
+`pgvector` is enabled by the migrations themselves.
 
 ### 2. Generate the credentials-encryption key (on your machine)
 
@@ -60,56 +70,64 @@ Render and Vercel deploy from a GitHub repository.
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Keep the output for step 3. It encrypts connector credentials at rest. Don't commit it, and
-don't paste it anywhere except Render's environment settings.
+Keep the output for step 3. Paste it only into Render's settings.
 
-### 3. API: Render
+### 3. Render (both services)
 
 1. Sign up at render.com with GitHub.
-2. Go to **New → Blueprint** and pick the repository. Render reads `render.yaml`.
-3. It asks for the two `sync: false` values:
-   - `SF_DATABASE_URL`: the Neon string from step 1;
-   - `SF_CREDENTIALS_KEYS`: the key from step 2.
-
-   `SF_JWT_SECRET` is generated by Render.
-4. **Apply.** The first build takes a few minutes. When it's live, open
-   `https://<your-service>.onrender.com/readyz`; it should return
+2. Go to **New → Blueprint** and select the repository. Render shows `solutionforge-api`
+   and `solutionforge-web`.
+3. Fill in the prompted values:
+   - `SF_DATABASE_URL`: the Supabase string from step 1;
+   - `SF_CREDENTIALS_KEYS`: the key from step 2;
+   - `SF_API_URL` (web service): leave it as a placeholder for now, e.g.
+     `https://example.com`.
+4. **Apply.** Wait until `solutionforge-api` is live, then open
+   `https://<api>.onrender.com/readyz`. It should return
    `{"status": "ok", "checks": {"database": "ok"}}`.
+5. In **solutionforge-web → Environment**, set `SF_API_URL` to the API's URL
+   (`https://<api>.onrender.com`, no trailing slash) and save. Render redeploys the web
+   service.
+6. Open `https://<web>.onrender.com`. Create an account, create an organization, then
+   click **Seed demo data**.
 
-### 4. Dashboard: Vercel
-
-1. Sign up at vercel.com with GitHub. Go to **Add New → Project** and import the repository.
-2. Set **Root Directory** to `apps/web`. The framework (Next.js) is detected.
-3. Add the environment variable `SF_API_URL` = `https://<your-service>.onrender.com` (no
-   trailing slash).
-4. **Deploy.** Open the Vercel URL, create an account, create an organization, then click
-   **Seed demo data**.
-
-### 5. Verify
+### 4. Verify
 
 ```bash
 pip install httpx
-python apps/api/scripts/smoke.py https://<your-service>.onrender.com --timeout 120
+python apps/api/scripts/smoke.py https://<api>.onrender.com --timeout 120
 ```
 
-It should end with `smoke test passed`. Give it a long timeout on the first run, because
-the service may be waking up.
+It should end with `smoke test passed`.
+
+## Alternatives
+
+- **Neon instead of Supabase:**
+  - create the project in AWS us-east-1;
+  - turn **Connection pooling off** and paste the *direct* string as-is (no pausing to
+    manage; compute suspends when idle).
+  - Migration `0010` is a no-op there.
+- **Vercel for the dashboard instead of Render:**
+  - import the repo with Root Directory `apps/web` and set `SF_API_URL`;
+  - delete the `solutionforge-web` service from the blueprint.
+
+  The BFF routes allow 60 s for a sleeping API and return a clean
+  "API is starting up" 503 instead of failing.
 
 ## Security notes for this setup
 
-- The Render URL is public, like any API, and protected by auth, RBAC, rate limits and the
-  request guard. People reach the dashboard only through Vercel.
-- `FORWARDED_ALLOW_IPS=*` trusts forwarded client IPs. Anyone calling the Render URL
-  directly can therefore spoof their IP and evade **per-IP** rate limits. Per-account limits
-  still apply. Fine for a demo; a real deployment puts the API on a private network
-  (Phase 15).
+- **Supabase Data API:** closed by code (migration `0010`, with a PostgreSQL regression
+  test). Turning it off in settings is the second layer.
+- **Public API URL:** the Render API URL is public, protected by auth, RBAC, rate limits and
+  the request guard. Browsers only talk to the web service.
+- **Forwarded IPs:** `FORWARDED_ALLOW_IPS=*` means a caller hitting the API URL directly can
+  spoof their IP and evade **per-IP** rate limits. Per-account limits still apply. Fine for
+  a demo; a real deployment keeps the API on a private network.
 - **Rotation:**
   - **JWT secret:** regenerate it in Render. Everyone is signed out.
-  - **Credentials key:** prepend a new key, comma-separated (`new,old`). Old secrets still
-    decrypt while new ones use the new key.
-- `/metrics` is hidden in production unless you set `SF_METRICS_TOKEN`.
+  - **Credentials key:** prepend a new key, comma-separated (`new,old`).
+- **Metrics:** `/metrics` is hidden in production unless `SF_METRICS_TOKEN` is set.
 
 ## Tear down
 
-Delete the Render service, the Vercel project and the Neon project from their dashboards.
-Nothing here is billed, so nothing keeps charging.
+Delete both Render services and the Supabase project. Nothing is billed.

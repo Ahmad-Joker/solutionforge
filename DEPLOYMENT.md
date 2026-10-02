@@ -46,8 +46,8 @@ In production, terminate TLS in front of the web app so cookies get the `Secure`
 
 ## Free hosting
 
-Vercel (dashboard) + Render (API with the embedded worker) + Neon (Postgres + pgvector),
-$0/month. Step by step, with a local rehearsal of the exact configuration:
+Render (dashboard + API with the embedded worker, one blueprint) + Supabase or Neon
+(Postgres + pgvector), $0/month. Vercel works for the dashboard too. Step by step, with a local rehearsal of the exact configuration:
 [docs/DEPLOY_FREE.md](docs/DEPLOY_FREE.md). Database URLs in the libpq style that hosts hand
 out (`postgres://…?sslmode=require&channel_binding=…`) are normalized for the async driver
 automatically.

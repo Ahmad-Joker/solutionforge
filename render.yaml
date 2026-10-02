@@ -1,12 +1,14 @@
-# Render Blueprint: the API (with the worker loops embedded) on Render's free plan.
-# Database: Neon free tier (PostgreSQL + pgvector). Web dashboard: Vercel Hobby.
+# Render Blueprint: SolutionForge on Render's free plan, $0/month.
+#   solutionforge-api  API with the worker loops embedded (Docker)
+#   solutionforge-web  Next.js dashboard + cookie BFF (Docker)
+# Database: Supabase free (Session pooler) or Neon free — both PostgreSQL + pgvector.
 # Step-by-step: docs/DEPLOY_FREE.md
 services:
   - type: web
     name: solutionforge-api
     runtime: docker
     plan: free
-    region: oregon   # keep next to the database: create Neon in AWS us-west-2 (Oregon)
+    region: virginia   # next to the database: create it in AWS us-east-1 (N. Virginia)
     dockerfilePath: ./infra/docker/api.Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -14,7 +16,7 @@ services:
     envVars:
       - key: SF_ENVIRONMENT
         value: production
-      # Neon *direct* (non-pooled) connection string, pasted in the Render dashboard.
+      # Supabase "Session pooler" string (IPv4) or Neon direct string, pasted in the dashboard.
       - key: SF_DATABASE_URL
         sync: false
       - key: SF_JWT_SECRET
@@ -44,3 +46,18 @@ services:
         value: "*"
       - key: SF_LOG_JSON
         value: "true"
+
+  - type: web
+    name: solutionforge-web
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./infra/docker/web.Dockerfile
+    dockerContext: .
+    healthCheckPath: /login
+    autoDeploy: true
+    envVars:
+      # The API's public URL (https://solutionforge-api-xxxx.onrender.com), pasted after the
+      # API's first deploy. Server-side only: browsers talk to this web service, never the API.
+      - key: SF_API_URL
+        sync: false
