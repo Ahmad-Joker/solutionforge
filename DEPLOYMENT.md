@@ -20,6 +20,7 @@ and `.env.example`).
 | `SF_OTEL_EXPORTER_OTLP_ENDPOINT` | no | unset (tracing off) | OTLP/HTTP base URL, e.g. `http://otel-collector:4318`; traces go to `<url>/v1/traces` |
 | `SF_METRICS_TOKEN` | **yes to scrape outside dev/test** | unset | bearer token for `GET /metrics`; without it the endpoint returns 404 in staging/production |
 | `SF_WORKER_METRICS_PORT` | no | unset | worker Prometheus port (private network only) |
+| `SF_DATABASE_PASSWORD` | no | unset | database password on its own; inserted into `SF_DATABASE_URL`, which can then omit it (easier to paste safely) |
 | `SF_DATABASE_POOL_SIZE` / `SF_DATABASE_MAX_OVERFLOW` | no | `10` / `20` | per-process pool; lower it on free/serverless Postgres |
 | `WEB_CONCURRENCY` | no | `1` | uvicorn worker processes per API container; needs `SF_JWT_SECRET` + `SF_CREDENTIALS_KEYS` set; budget `N × (pool + overflow)` connections |
 | `SF_DATABASE_POOL_TIMEOUT_SECONDS` | no | `10` | wait for a pool connection before answering `503 server_busy` + `Retry-After` |

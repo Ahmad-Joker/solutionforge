@@ -115,3 +115,26 @@ def test_wrong_database_url_fails_clearly_without_echoing_secrets(bad: str) -> N
     message = str(err.value)
     assert "must be a PostgreSQL connection string" in message
     assert "S3CRETPW" not in message and "neon.tech" not in message
+
+
+def test_database_password_can_be_supplied_separately() -> None:
+    from sqlalchemy.engine import make_url
+
+    from solutionforge.core.config import Settings
+
+    s = Settings(
+        database_url="  postgresql://owner@ep-x.us-east-1.aws.neon.tech/neondb?sslmode=require\n",
+        database_password=" p@ss/w:rd#1\n",
+    )
+    url = make_url(s.database_url)
+    assert (url.drivername, url.username, url.host, url.database) == (
+        "postgresql+asyncpg",
+        "owner",
+        "ep-x.us-east-1.aws.neon.tech",
+        "neondb",
+    )
+    assert url.password == "p@ss/w:rd#1"
+    assert dict(url.query) == {"ssl": "require"}
+    # Unset (or blank) leaves a password that is already in the URL alone.
+    unchanged = Settings(database_url="postgresql://u:old@h/db", database_password="")
+    assert unchanged.database_url == "postgresql+asyncpg://u:old@h/db"

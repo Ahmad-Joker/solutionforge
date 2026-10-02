@@ -16,8 +16,14 @@ services:
     envVars:
       - key: SF_ENVIRONMENT
         value: production
-      # Supabase "Session pooler" string (IPv4) or Neon direct string, pasted in the dashboard.
+      # Connection string WITHOUT the password, e.g.
+      #   postgresql://neondb_owner@ep-xxx.us-east-1.aws.neon.tech/neondb?sslmode=require
+      # (Neon: direct, pooling off; Supabase: Session pooler). A full string with the password
+      # also works, in which case leave SF_DATABASE_PASSWORD empty.
       - key: SF_DATABASE_URL
+        sync: false
+      # Just the database password, pasted on its own (Neon's copy button copies exactly this).
+      - key: SF_DATABASE_PASSWORD
         sync: false
       - key: SF_JWT_SECRET
         generateValue: true

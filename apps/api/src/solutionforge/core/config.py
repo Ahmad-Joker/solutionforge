@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://solutionforge:solutionforge@localhost:5432/solutionforge"
     )
+    # Optional: the database password on its own. When set, it is inserted into
+    # database_url (which can then omit it), so the secret can be pasted into its own field
+    # instead of being spliced into a long connection string by hand.
+    database_password: SecretStr | None = None
     database_echo: bool = False
     # Pool per process. Free/serverless Postgres tiers have low connection limits.
     database_pool_size: int = Field(default=10, ge=1, le=100)
@@ -119,7 +123,7 @@ class Settings(BaseSettings):
     def _normalize_database_url(cls, v: object) -> object:
         if not isinstance(v, str):
             return v
-        url = normalize_database_url(v)
+        url = normalize_database_url(v.strip())  # pasted values often carry a newline
         if not url.startswith(("postgresql+asyncpg://", "sqlite")):
             # Name the scheme only: the URL may embed a password.
             scheme = url.split("://", 1)[0] if "://" in url else "(none)"
@@ -135,6 +139,7 @@ class Settings(BaseSettings):
         "credentials_keys",
         "redis_url",
         "metrics_token",
+        "database_password",
         "otel_exporter_otlp_endpoint",
         mode="before",
     )
@@ -142,6 +147,17 @@ class Settings(BaseSettings):
     def _blank_is_unset(cls, v: object) -> object:
         # `SF_JWT_SECRET=` in an env file means "not configured", not "an empty secret".
         return None if isinstance(v, str) and not v.strip() else v
+
+    @model_validator(mode="after")
+    def _apply_database_password(self) -> Settings:
+        if self.database_password is not None and self.database_url.startswith("postgresql"):
+            from sqlalchemy.engine import make_url
+
+            url = make_url(self.database_url).set(
+                password=self.database_password.get_secret_value().strip()
+            )
+            self.database_url = url.render_as_string(hide_password=False)
+        return self
 
     @model_validator(mode="after")
     def _require_secrets(self) -> Settings:
