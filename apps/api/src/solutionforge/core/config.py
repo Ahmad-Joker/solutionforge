@@ -46,7 +46,13 @@ def normalize_database_url(url: str) -> str:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SF_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="SF_",
+        env_file=".env",
+        extra="ignore",
+        # Validation errors must never echo values: URLs and keys carry secrets.
+        hide_input_in_errors=True,
+    )
 
     environment: Environment = Environment.DEV
     app_name: str = "SolutionForge"
@@ -111,7 +117,17 @@ class Settings(BaseSettings):
     @field_validator("database_url", mode="before")
     @classmethod
     def _normalize_database_url(cls, v: object) -> object:
-        return normalize_database_url(v) if isinstance(v, str) else v
+        if not isinstance(v, str):
+            return v
+        url = normalize_database_url(v)
+        if not url.startswith(("postgresql+asyncpg://", "sqlite")):
+            # Name the scheme only: the URL may embed a password.
+            scheme = url.split("://", 1)[0] if "://" in url else "(none)"
+            raise ValueError(
+                f"SF_DATABASE_URL must be a PostgreSQL connection string "
+                f"(postgresql://user:password@host/db), not a '{scheme}' URL"
+            )
+        return url
 
     @field_validator(
         "jwt_secret",

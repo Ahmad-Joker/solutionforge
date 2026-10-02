@@ -94,3 +94,24 @@ def test_database_urls_from_hosting_providers_are_normalized(given: str, expecte
 
     assert normalize_database_url(given) == expected
     assert Settings(database_url=given).database_url == expected
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "https://user:S3CRETPW@ep-x.us-east-1.aws.neon.tech/neondb",  # Neon HTTP endpoint
+        "https://solutionforge-api.onrender.com",  # an app URL pasted by mistake
+        "mysql://user:S3CRETPW@host/db",
+        "user:S3CRETPW@host/db",
+    ],
+)
+def test_wrong_database_url_fails_clearly_without_echoing_secrets(bad: str) -> None:
+    from pydantic import ValidationError
+
+    from solutionforge.core.config import Settings
+
+    with pytest.raises(ValidationError) as err:
+        Settings(database_url=bad)
+    message = str(err.value)
+    assert "must be a PostgreSQL connection string" in message
+    assert "S3CRETPW" not in message and "neon.tech" not in message
