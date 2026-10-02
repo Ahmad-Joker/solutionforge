@@ -6,6 +6,7 @@ import secrets
 from enum import StrEnum
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +17,32 @@ class Environment(StrEnum):
     TEST = "test"
     STAGING = "staging"
     PRODUCTION = "production"
+
+
+_SSL_MODES = {"require", "verify-ca", "verify-full", "prefer", "allow", "disable"}
+
+
+def normalize_database_url(url: str) -> str:
+    """Accept the connection strings hosting providers hand out (Neon, Supabase, Render):
+
+    - ``postgres://`` / ``postgresql://`` → the async driver ``postgresql+asyncpg://``;
+    - libpq's ``sslmode=…`` → asyncpg's ``ssl=…``;
+    - ``channel_binding`` (libpq-only) is dropped — asyncpg still authenticates with SCRAM.
+    """
+    parts = urlsplit(url)
+    scheme = parts.scheme
+    if scheme in ("postgres", "postgresql"):
+        scheme = "postgresql+asyncpg"
+    if not scheme.startswith("postgresql"):
+        return url
+    query = []
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        if key == "channel_binding":
+            continue
+        if key == "sslmode" and scheme == "postgresql+asyncpg" and value in _SSL_MODES:
+            key = "ssl"
+        query.append((key, value))
+    return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 class Settings(BaseSettings):
@@ -30,6 +57,9 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://solutionforge:solutionforge@localhost:5432/solutionforge"
     )
     database_echo: bool = False
+    # Pool per process. Free/serverless Postgres tiers have low connection limits.
+    database_pool_size: int = Field(default=10, ge=1, le=100)
+    database_max_overflow: int = Field(default=20, ge=0, le=100)
 
     # JWT. Required outside dev/test; see ``_require_secrets``.
     jwt_secret: SecretStr | None = None
@@ -75,6 +105,11 @@ class Settings(BaseSettings):
     max_request_bytes: int = Field(default=8 * 1024 * 1024, ge=1024)
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, v: object) -> object:
+        return normalize_database_url(v) if isinstance(v, str) else v
 
     @field_validator(
         "jwt_secret",

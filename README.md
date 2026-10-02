@@ -107,5 +107,5 @@ studies → portfolio polish. Details and acceptance criteria are in
 ## Docs
 
 [ARCHITECTURE](ARCHITECTURE.md) · [SECURITY](SECURITY.md) (threat model) · [API](API.md) ·
-[DEPLOYMENT](DEPLOYMENT.md) · [EVALUATION](docs/EVALUATION.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) · [SECURITY TESTING](docs/SECURITY_TESTING.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
+[DEPLOYMENT](DEPLOYMENT.md) · [FREE DEPLOY](docs/DEPLOY_FREE.md) · [EVALUATION](docs/EVALUATION.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) · [SECURITY TESTING](docs/SECURITY_TESTING.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
 [CONTRIBUTING](CONTRIBUTING.md) · [ADRs](docs/adr/) · [Backlog](docs/BACKLOG.md)

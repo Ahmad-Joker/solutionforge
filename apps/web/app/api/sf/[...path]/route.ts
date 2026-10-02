@@ -5,7 +5,9 @@
  */
 import { NextResponse } from "next/server";
 
-import { accessToken, API_BASE_URL, forwardedHeaders, tryRefresh } from "@/lib/session";
+import { accessToken, API_BASE_URL, API_UNAVAILABLE, forwardedHeaders, tryRefresh } from "@/lib/session";
+
+export const maxDuration = 60; // a sleeping free-tier API can take ~30-60 s to wake
 
 type Ctx = { params: Promise<{ path: string[] }> };
 const SAFE = new Set(["GET", "HEAD"]);
@@ -35,10 +37,18 @@ async function forward(req: Request, ctx: Ctx): Promise<Response> {
       cache: "no-store",
     });
 
-  let res = await call(await accessToken());
-  if (res.status === 401) {
-    const fresh = await tryRefresh();
-    if (fresh) res = await call(fresh);
+  let res: Response;
+  try {
+    res = await call(await accessToken());
+    if (res.status === 401) {
+      const fresh = await tryRefresh();
+      if (fresh) res = await call(fresh);
+    }
+  } catch {
+    return NextResponse.json(API_UNAVAILABLE, { status: 503 });
+  }
+  if (res.status >= 502 && !(res.headers.get("content-type") ?? "").includes("json")) {
+    return NextResponse.json(API_UNAVAILABLE, { status: 503 }); // platform error page while waking
   }
   const text = await res.text();
   return new Response(res.status === 204 ? null : text, {

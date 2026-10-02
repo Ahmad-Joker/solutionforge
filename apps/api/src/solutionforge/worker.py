@@ -27,7 +27,11 @@ async def main() -> None:
     if settings.worker_metrics_port is not None:
         # Plain scrape port for the worker process; keep it on the private network.
         start_http_server(settings.worker_metrics_port, registry=metrics.REGISTRY)
-    db = build_engine(settings.database_url)
+    db = build_engine(
+        settings.database_url,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+    )
     sessionmaker = build_sessionmaker(db)
     retriever = build_retriever(sessionmaker)
     registry = default_registry(

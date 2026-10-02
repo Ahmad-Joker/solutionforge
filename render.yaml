@@ -1,0 +1,46 @@
+# Render Blueprint: the API (with the worker loops embedded) on Render's free plan.
+# Database: Neon free tier (PostgreSQL + pgvector). Web dashboard: Vercel Hobby.
+# Step-by-step: docs/DEPLOY_FREE.md
+services:
+  - type: web
+    name: solutionforge-api
+    runtime: docker
+    plan: free
+    region: oregon   # keep next to the database: create Neon in AWS us-west-2 (Oregon)
+    dockerfilePath: ./infra/docker/api.Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: SF_ENVIRONMENT
+        value: production
+      # Neon *direct* (non-pooled) connection string, pasted in the Render dashboard.
+      - key: SF_DATABASE_URL
+        sync: false
+      - key: SF_JWT_SECRET
+        generateValue: true
+      # Fernet key generated locally (see docs/DEPLOY_FREE.md), pasted in the dashboard.
+      - key: SF_CREDENTIALS_KEYS
+        sync: false
+      # One free instance: run the worker loops in-process and migrate on start.
+      - key: SF_EMBEDDED_WORKER
+        value: "true"
+      - key: SF_MIGRATE_ON_START
+        value: "true"
+      - key: SF_WORKER_CONCURRENCY
+        value: "2"
+      - key: SF_WORKER_POLL_INTERVAL_SECONDS
+        value: "2"
+      # Small pool: free Postgres tiers have low connection limits.
+      - key: SF_DATABASE_POOL_SIZE
+        value: "5"
+      - key: SF_DATABASE_MAX_OVERFLOW
+        value: "5"
+      # Deterministic mock model: no API key, no spend.
+      - key: SF_LLM_ENABLE_MOCK
+        value: "true"
+      # Only Render's proxy can reach the container, so trust its forwarded headers.
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
+      - key: SF_LOG_JSON
+        value: "true"

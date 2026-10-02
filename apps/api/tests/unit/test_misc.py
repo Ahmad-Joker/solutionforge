@@ -70,3 +70,27 @@ def test_owner_lock_query_is_valid_for_postgres() -> None:
     sql = str(owners_for_update(ctx).compile(dialect=postgresql.dialect()))
     assert "LEFT OUTER JOIN" not in sql
     assert "FOR UPDATE OF memberships" in sql
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        (  # Neon's dashboard string
+            "postgresql://u:p@ep-x-123.eu-central-1.aws.neon.tech/neondb"
+            "?sslmode=require&channel_binding=require",
+            "postgresql+asyncpg://u:p@ep-x-123.eu-central-1.aws.neon.tech/neondb?ssl=require",
+        ),
+        ("postgres://u:p@h:5432/db", "postgresql+asyncpg://u:p@h:5432/db"),  # Heroku/Render style
+        ("postgresql+asyncpg://u:p@h/db?ssl=require", "postgresql+asyncpg://u:p@h/db?ssl=require"),
+        (  # percent-encoded credentials and unrelated params survive
+            "postgresql://u:p%40ss%20w@h/db?sslmode=disable&application_name=sf",
+            "postgresql+asyncpg://u:p%40ss%20w@h/db?ssl=disable&application_name=sf",
+        ),
+        ("sqlite+aiosqlite:///tmp/x.db", "sqlite+aiosqlite:///tmp/x.db"),
+    ],
+)
+def test_database_urls_from_hosting_providers_are_normalized(given: str, expected: str) -> None:
+    from solutionforge.core.config import Settings, normalize_database_url
+
+    assert normalize_database_url(given) == expected
+    assert Settings(database_url=given).database_url == expected

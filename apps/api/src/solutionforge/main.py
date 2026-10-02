@@ -57,7 +57,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Engines connect lazily, so building one here is cheap and keeps the app usable
     # by test clients that do not run the ASGI lifespan.
-    engine = build_engine(settings.database_url, echo=settings.database_echo)
+    engine = build_engine(
+        settings.database_url,
+        echo=settings.database_echo,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

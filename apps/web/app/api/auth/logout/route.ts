@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { API_BASE_URL, clearTokens, refreshToken } from "@/lib/session";
 
+export const maxDuration = 60;
+
 export async function POST(): Promise<Response> {
   const rt = await refreshToken();
   if (rt) {

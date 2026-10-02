@@ -16,8 +16,9 @@ WORKDIR /app
 COPY --from=build /opt/venv /opt/venv
 COPY apps/api/alembic.ini ./
 COPY apps/api/migrations ./migrations
+COPY --chmod=755 infra/docker/api-start.sh /usr/local/bin/api-start
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-  CMD python -c "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/healthz').status != 200)"
-CMD ["uvicorn", "solutionforge.main:app_factory", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+  CMD python -c "import os,urllib.request,sys; port=os.environ.get('PORT','8000'); sys.exit(urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz').status != 200)"
+CMD ["api-start"]

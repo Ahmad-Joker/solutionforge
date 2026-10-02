@@ -20,6 +20,9 @@ and `.env.example`).
 | `SF_OTEL_EXPORTER_OTLP_ENDPOINT` | no | unset (tracing off) | OTLP/HTTP base URL, e.g. `http://otel-collector:4318`; traces go to `<url>/v1/traces` |
 | `SF_METRICS_TOKEN` | **yes to scrape outside dev/test** | unset | bearer token for `GET /metrics`; without it the endpoint returns 404 in staging/production |
 | `SF_WORKER_METRICS_PORT` | no | unset | worker Prometheus port (private network only) |
+| `SF_DATABASE_POOL_SIZE` / `SF_DATABASE_MAX_OVERFLOW` | no | `10` / `20` | per-process pool; lower it on free/serverless Postgres |
+| `SF_MIGRATE_ON_START` | no | `false` | container runs `alembic upgrade head` before serving; for single-instance hosts without a release step |
+| `PORT` | no | `8000` | listen port when the platform assigns one (Render, Cloud Run) |
 | `SF_RATE_LIMIT_ENABLED` | no | `true` | |
 | `SF_LLM_ENABLE_MOCK` | no | `true` | deterministic mock provider (models `mock:mock-1`, `mock:mock-fast`, synthetic prices) |
 | `SF_ANTHROPIC_API_KEY` | no | unset | enables the `anthropic:*` models (`claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`) |
@@ -40,6 +43,14 @@ Run it with `npm run build && npm start`, which uses the standalone server
 In production, terminate TLS in front of the web app so cookies get the `Secure` flag
 (automatic when `NODE_ENV=production`). Keep the API on a private network and set uvicorn's
 `FORWARDED_ALLOW_IPS` to the BFF's address only.
+
+## Free hosting
+
+Vercel (dashboard) + Render (API with the embedded worker) + Neon (Postgres + pgvector),
+$0/month. Step by step, with a local rehearsal of the exact configuration:
+[docs/DEPLOY_FREE.md](docs/DEPLOY_FREE.md). Database URLs in the libpq style that hosts hand
+out (`postgres://…?sslmode=require&channel_binding=…`) are normalized for the async driver
+automatically.
 
 ## Local stack
 

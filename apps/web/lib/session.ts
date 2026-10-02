@@ -79,3 +79,30 @@ export function forwardedHeaders(req: Request): Record<string, string> {
   }
   return out;
 }
+
+/**
+ * Free hosting sleeps when idle; the first request may hit a cold API (slow, or a non-JSON
+ * error page from the platform). Callers get a clean 503 envelope instead of a crash.
+ */
+export const API_UNAVAILABLE = {
+  error: {
+    code: "api_unavailable",
+    message: "The API is starting up (free hosting sleeps when idle). Please retry in about 30 seconds.",
+  },
+};
+
+export async function upstreamJson(
+  call: () => Promise<Response>,
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  let res: Response;
+  try {
+    res = await call();
+  } catch {
+    return { ok: false, status: 503, data: API_UNAVAILABLE };
+  }
+  const type = res.headers.get("content-type") ?? "";
+  if (!type.includes("json")) {
+    return { ok: false, status: res.status >= 500 ? 503 : res.status, data: API_UNAVAILABLE };
+  }
+  return { ok: res.ok, status: res.status, data: await res.json() };
+}
