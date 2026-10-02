@@ -7,6 +7,10 @@ customer data) with the guarantees enforced by code, not by prompts.** Every act
 permission-checked, risky ones wait for a human, every version is evaluated before it ships,
 and every run is traceable end to end.
 
+**Live demo:** [solutionforge-web-ap6j.onrender.com](https://solutionforge-web-ap6j.onrender.com).
+Sign up, create an organization, then click **Seed demo data**. It runs on free hosting
+(Render + Neon), so the first visit after a quiet spell takes about a minute to wake up.
+
 ![Approvals inbox: a high-risk refund proposed by a workflow waits for a second person](docs/images/approvals.png)
 
 ## Why it exists
@@ -112,7 +116,7 @@ Open http://localhost:3000 to sign up, or log in with the credentials in `demo.j
 API docs are at http://localhost:8000/docs. Add `--profile observability` to also get
 Grafana on :3001, Prometheus on :9090 and Jaeger on :16686.
 
-**Free hosting** on Render + Supabase, $0: see [docs/DEPLOY_FREE.md](docs/DEPLOY_FREE.md).
+**Free hosting** on Render + Neon or Supabase, $0 (this is how the live demo runs): see [docs/DEPLOY_FREE.md](docs/DEPLOY_FREE.md).
 
 **Tests only** (Python 3.12, no Docker needed):
 
@@ -141,8 +145,8 @@ render.yaml          Free-tier deployment blueprint
   mock model, so they prove the platform's controls, not writing quality. The evaluation
   framework is ready for a real model.
 - **Hardware.** Performance numbers come from a laptop shared with the load generator.
-- **The AWS deployment is designed, not applied.** Free hosting (Render + Supabase) is
-  fully set up and rehearsed.
+- **The AWS deployment is designed, not applied.** The live demo runs on free hosting
+  (Render + Neon), and the smoke test passes against it.
 - **Not built yet:** PostgreSQL row-level security (deferred; see ADR-0011), semantic
   embeddings (the embedder is lexical), NER-based PII detection, a built-in scheduler.
 

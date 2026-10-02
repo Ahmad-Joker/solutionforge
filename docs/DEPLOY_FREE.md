@@ -8,6 +8,22 @@ browser ──► Render: solutionforge-web  (Next.js dashboard + BFF, httpOnly 
 
 Both Render services come from one blueprint (`render.yaml`).
 
+**Live since 2026-10-03:** [solutionforge-web-ap6j.onrender.com](https://solutionforge-web-ap6j.onrender.com)
+(API: `solutionforge-api.onrender.com`). It runs on Render free + **Neon** free (Postgres 16,
+AWS us-east-1), because the Supabase account already had its 2 free active projects in
+use. The strict smoke test passed against the live API: worker execution, tool call,
+metered LLM call, hidden `/metrics`, and tenant isolation.
+
+**Easiest database setup (learned deploying it):** set `SF_DATABASE_URL` to the connection
+string **without** the password, e.g.
+`postgresql://neondb_owner@ep-xxx.us-east-1.aws.neon.tech/neondb?sslmode=require`, and paste
+the password alone into `SF_DATABASE_PASSWORD`. Two traps came up in practice:
+- an `https://` link (the console page, or the Data API tab) pasted as the URL;
+- Neon's copy button copying `password@host/db?…` rather than the password alone.
+
+The app now rejects the first with a clear message, and the separate password setting
+avoids the second.
+
 **Rehearsed on 2026-10-02** with the exact blueprint settings, locally in Docker, against
 a Supabase-like Postgres. That database had Supabase's `anon`/`authenticated` roles and
 default grants, and a dotted pooler username (`postgres.<ref>`).

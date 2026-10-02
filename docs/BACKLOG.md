@@ -241,7 +241,7 @@ Findings and residual risks: [SECURITY_TESTING.md](SECURITY_TESTING.md).
 - [x] `scripts/demo_setup.py` (populated demo org) and `apps/web/scripts/screenshots.mjs` (reproducible screenshots)
 - [x] Fixed while capturing: evaluation cases stored only their specified expectations (the UI listed empty defaults); gate badge reads "off"/"armed"
 - [ ] Short demo video / GIF
-- [ ] Live demo link (after the free deployment is set up)
+- [x] Live demo on Render + Neon (free); strict smoke test passes against production (2026-10-03)
 
 ## Tech-debt / follow-ups discovered so far
 
