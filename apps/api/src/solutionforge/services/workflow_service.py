@@ -17,6 +17,7 @@ import sqlalchemy as sa
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from solutionforge.core.clock import utcnow
 from solutionforge.core.errors import Conflict, NotFound, ValidationFailed
@@ -426,7 +427,12 @@ async def list_executions(
         stmt = stmt.where(Execution.status == status)
     if before is not None:
         stmt = stmt.where(Execution.created_at < before)
-    stmt = stmt.order_by(Execution.created_at.desc(), Execution.id.desc()).limit(limit)
+    stmt = (
+        stmt.order_by(Execution.created_at.desc(), Execution.id.desc())
+        .limit(limit)
+        # Per-step outputs can be large and aren't part of the list response.
+        .options(defer(Execution.step_outputs))
+    )
     return list((await session.scalars(stmt)).all())
 
 

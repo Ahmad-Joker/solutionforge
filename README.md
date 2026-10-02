@@ -2,7 +2,7 @@
 
 **A multi-tenant platform for deploying AI workflows that are permission-controlled, human-approved where it matters, evaluated before release, and observable in production.**
 
-> **Project status: Phases 0–14 and 16 of 19 complete** (Phase 14's cloud deploy stages wait on Phase 15). Verified on PostgreSQL 16 + pgvector and as a full Docker stack. This README only describes what exists and is
+> **Project status: Phases 0–14, 16 and 17 of 19 complete** (Phase 14's cloud deploy stages wait on Phase 15). Verified on PostgreSQL 16 + pgvector and as a full Docker stack. This README only describes what exists and is
 > tested. Planned capabilities are listed under [Roadmap](#roadmap) and marked as such in
 > [ARCHITECTURE.md](ARCHITECTURE.md). Live demo, demo video and benchmark numbers will be added
 > once they exist and are measured.
@@ -100,12 +100,11 @@ Planned: Next.js/TypeScript, OpenTelemetry, Prometheus, Grafana, AWS.
 
 ## Roadmap
 
-Cloud deployment (AWS) → load testing with measured p50/p95/p99 → three customer case
-studies → portfolio polish. Details and acceptance criteria are in
+Cloud deployment (AWS, optional) → three customer case studies → portfolio polish. Details and acceptance criteria are in
 [docs/BACKLOG.md](docs/BACKLOG.md).
 
 ## Docs
 
 [ARCHITECTURE](ARCHITECTURE.md) · [SECURITY](SECURITY.md) (threat model) · [API](API.md) ·
-[DEPLOYMENT](DEPLOYMENT.md) · [FREE DEPLOY](docs/DEPLOY_FREE.md) · [EVALUATION](docs/EVALUATION.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) · [SECURITY TESTING](docs/SECURITY_TESTING.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
+[DEPLOYMENT](DEPLOYMENT.md) · [FREE DEPLOY](docs/DEPLOY_FREE.md) · [EVALUATION](docs/EVALUATION.md) · [OBSERVABILITY](docs/OBSERVABILITY.md) · [SECURITY TESTING](docs/SECURITY_TESTING.md) · [PERFORMANCE](docs/PERFORMANCE.md) · [RETRIEVAL](docs/RETRIEVAL.md) · [TESTING](docs/TESTING.md) ·
 [CONTRIBUTING](CONTRIBUTING.md) · [ADRs](docs/adr/) · [Backlog](docs/BACKLOG.md)

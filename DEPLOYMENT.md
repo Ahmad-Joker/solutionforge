@@ -21,6 +21,8 @@ and `.env.example`).
 | `SF_METRICS_TOKEN` | **yes to scrape outside dev/test** | unset | bearer token for `GET /metrics`; without it the endpoint returns 404 in staging/production |
 | `SF_WORKER_METRICS_PORT` | no | unset | worker Prometheus port (private network only) |
 | `SF_DATABASE_POOL_SIZE` / `SF_DATABASE_MAX_OVERFLOW` | no | `10` / `20` | per-process pool; lower it on free/serverless Postgres |
+| `WEB_CONCURRENCY` | no | `1` | uvicorn worker processes per API container; needs `SF_JWT_SECRET` + `SF_CREDENTIALS_KEYS` set; budget `N × (pool + overflow)` connections |
+| `SF_DATABASE_POOL_TIMEOUT_SECONDS` | no | `10` | wait for a pool connection before answering `503 server_busy` + `Retry-After` |
 | `SF_MIGRATE_ON_START` | no | `false` | container runs `alembic upgrade head` before serving; for single-instance hosts without a release step |
 | `PORT` | no | `8000` | listen port when the platform assigns one (Render, Cloud Run) |
 | `SF_RATE_LIMIT_ENABLED` | no | `true` | |

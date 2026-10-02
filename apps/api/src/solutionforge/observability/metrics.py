@@ -11,10 +11,18 @@ Label rules (enforced by review and tests):
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 
 import sqlalchemy as sa
-from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
+from prometheus_client import (
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+    multiprocess,
+)
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from solutionforge.core.clock import utcnow
@@ -104,26 +112,41 @@ EXECUTIONS_BY_STATUS = Gauge(
     "sf_workflow_executions",
     "Non-terminal executions by status.",
     ["status"],
+    multiprocess_mode="max",
     registry=REGISTRY,
 )
-APPROVALS_PENDING = Gauge("sf_approvals_pending", "Pending approval requests.", registry=REGISTRY)
+APPROVALS_PENDING = Gauge(
+    "sf_approvals_pending", "Pending approval requests.", multiprocess_mode="max", registry=REGISTRY
+)
 DOCUMENTS_BY_STATUS = Gauge(
     "sf_documents",
     "Documents not yet ready, by ingestion status.",
     ["status"],
+    multiprocess_mode="max",
     registry=REGISTRY,
 )
 EVAL_RUNS_RUNNING = Gauge(
-    "sf_evaluation_runs_running", "Evaluation runs in progress.", registry=REGISTRY
+    "sf_evaluation_runs_running",
+    "Evaluation runs in progress.",
+    multiprocess_mode="max",
+    registry=REGISTRY,
 )
 OLDEST_QUEUED_SECONDS = Gauge(
     "sf_workflow_oldest_queued_seconds",
     "Age of the oldest runnable queued execution.",
+    multiprocess_mode="max",
     registry=REGISTRY,
 )
 
 
 def render() -> bytes:
+    """Exposition for this process — or, under several worker processes (the start script
+    sets PROMETHEUS_MULTIPROC_DIR when WEB_CONCURRENCY > 1), aggregated across all of them.
+    Without this a scrape would see whichever single process happened to answer."""
+    if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        aggregate = CollectorRegistry()
+        multiprocess.MultiProcessCollector(aggregate)  # type: ignore[no-untyped-call]
+        return generate_latest(aggregate)
     return generate_latest(REGISTRY)
 
 

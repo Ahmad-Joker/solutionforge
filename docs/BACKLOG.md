@@ -221,7 +221,13 @@ queue depth), Grafana dashboards as code.
 - [ ] NER-based PII detection (names/addresses) as a separate, labelled control
 
 Findings and residual risks: [SECURITY_TESTING.md](SECURITY_TESTING.md).
-## Phase 17 — Performance / load testing (k6 or Locust; measured p50/p95/p99)
+## Phase 17 — Performance / load testing ✅ (local laptop measurements)
+
+- [x] k6 mix (reads, workflow starts, hybrid search), steady + stress profiles, rate scaling; per-endpoint p50/p95/p99, repeated runs with ranges
+- [x] Measured: SLO held at ~68–100 req/s on a 4-core laptop; saturates ~130 req/s; graceful 503 shedding under 3× overload; end-to-end workflow latency
+- [x] Fixed: connection-pool deadlock in KB search (regression test with a 1-connection pool); pool exhaustion → 503 + Retry-After; multi-process API with Prometheus multiprocess metrics; shared dev secrets (also fixed workers unable to decrypt API-stored credentials)
+- [ ] Measure on a dedicated server; real-LLM latency; larger corpora
+- [ ] Faster load shedding (concurrency limit) instead of waiting out the pool timeout; `LISTEN/NOTIFY` worker wake-ups
 ## Phase 18 — Three customer case studies (Support Ops, Business Research, Ops Automation)
 ## Phase 19 — Documentation & portfolio polish
 

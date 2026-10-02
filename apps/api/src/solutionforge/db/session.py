@@ -23,9 +23,20 @@ def json_serializer(value: Any) -> str:
 
 
 def build_engine(
-    url: str, *, echo: bool = False, pool_size: int = 10, max_overflow: int = 20
+    url: str,
+    *,
+    echo: bool = False,
+    pool_size: int = 10,
+    max_overflow: int = 20,
+    pool_timeout: float = 10,
 ) -> AsyncEngine:
-    kwargs: dict[str, object] = {"echo": echo, "json_serializer": json_serializer}
+    kwargs: dict[str, object] = {
+        "echo": echo,
+        "json_serializer": json_serializer,
+        "pool_size": pool_size,
+        "max_overflow": max_overflow,
+        "pool_timeout": pool_timeout,
+    }
     if url.startswith("sqlite"):
         # SQLite is only used for local tests; enforce FKs so cascade/orphan bugs surface.
         engine = create_async_engine(url, **kwargs)
@@ -38,7 +49,7 @@ def build_engine(
 
         return engine
     # pre_ping: serverless Postgres (e.g. Neon) suspends when idle and drops connections.
-    kwargs.update(pool_pre_ping=True, pool_size=pool_size, max_overflow=max_overflow)
+    kwargs.update(pool_pre_ping=True)
     return create_async_engine(url, **kwargs)
 
 

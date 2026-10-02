@@ -27,14 +27,37 @@ services:
       timeout: 3s
       retries: 10
 
+  # Local only: generate shared dev secrets once (see infra/docker/sf-env.sh). Values set in
+  # .env always win; this volume is never part of a real deployment.
+  dev-secrets:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    user: root
+    entrypoint: ["python", "-c"]
+    command:
+      - |
+        import os, secrets
+        from cryptography.fernet import Fernet
+        path = "/run/sf-dev/secrets.env"
+        if not os.path.exists(path):
+            lines = [
+                "SF_JWT_SECRET=" + secrets.token_urlsafe(48),
+                "SF_CREDENTIALS_KEYS=" + Fernet.generate_key().decode(),
+            ]
+            with open(path, "w") as f:
+                f.write(chr(10).join(lines) + chr(10))
+            os.chmod(path, 0o644)
+    volumes: [sfdev:/run/sf-dev]
+
   migrate:
     build: { context: ., dockerfile: infra/docker/api.Dockerfile }
     command: ["alembic", "upgrade", "head"]
     env_file: [.env]
+    volumes: [sfdev:/run/sf-dev:ro]
     environment:
       SF_DATABASE_URL: postgresql+asyncpg://solutionforge:${POSTGRES_PASSWORD:-solutionforge}@postgres:5432/solutionforge
     depends_on:
       postgres: { condition: service_healthy }
+      dev-secrets: { condition: service_completed_successfully }
 
   api:
     build: { context: ., dockerfile: infra/docker/api.Dockerfile }
@@ -45,6 +68,11 @@ services:
       # Trust X-Forwarded-For from the web BFF (per-IP rate limits behind the proxy).
       FORWARDED_ALLOW_IPS: "*"
       SF_OTEL_EXPORTER_OTLP_ENDPOINT: ${SF_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # 4 processes × (5 + 5) = 40 connections; workers 2 × 10 = 20; Postgres allows 100.
+      WEB_CONCURRENCY: "4"
+      SF_DATABASE_POOL_SIZE: "5"
+      SF_DATABASE_MAX_OVERFLOW: "5"
+    volumes: [sfdev:/run/sf-dev:ro]
     ports: ["8000:8000"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -54,9 +82,12 @@ services:
     build: { context: ., dockerfile: infra/docker/api.Dockerfile }
     command: ["python", "-m", "solutionforge.worker"]
     env_file: [.env]
+    volumes: [sfdev:/run/sf-dev:ro]
     environment:
       SF_DATABASE_URL: postgresql+asyncpg://solutionforge:${POSTGRES_PASSWORD:-solutionforge}@postgres:5432/solutionforge
       SF_WORKER_METRICS_PORT: "9100"   # private network only; not published
+      SF_DATABASE_POOL_SIZE: "5"
+      SF_DATABASE_MAX_OVERFLOW: "5"
       SF_OTEL_EXPORTER_OTLP_ENDPOINT: ${SF_OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -103,3 +134,4 @@ services:
 
 volumes:
   pgdata:
+  sfdev:

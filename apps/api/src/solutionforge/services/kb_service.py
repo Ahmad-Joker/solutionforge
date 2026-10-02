@@ -235,6 +235,11 @@ async def search(
     min_dense_score: float,
 ) -> list[SearchHit]:
     await get_kb(session, ctx, kb_id)  # KNOWLEDGE_READ + tenant check
+    # The retriever uses its own session. End this read-only transaction first so the
+    # request's connection goes back to the pool: holding it while waiting for a second one
+    # deadlocks the whole pool under concurrency (found by load testing: 30 connections
+    # "idle in transaction", every endpoint stalled for the 30 s pool timeout).
+    await session.rollback()
     try:
         return await retriever.search(
             organization_id=ctx.organization_id,

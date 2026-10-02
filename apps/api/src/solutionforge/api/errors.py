@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import TimeoutError as PoolTimeout
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from solutionforge.core.errors import DomainError, TooManyRequests
@@ -76,6 +77,19 @@ def install_error_handlers(app: FastAPI) -> None:
     async def _http(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "http_error")
         return _envelope(request, exc.status_code, code, str(exc.detail))
+
+    @app.exception_handler(PoolTimeout)
+    async def _busy(request: Request, exc: PoolTimeout) -> JSONResponse:
+        # Load shedding: every database connection is busy. Clients should retry shortly.
+        log.warning("db_pool_exhausted", path=request.url.path)
+        return _envelope(
+            request,
+            503,
+            "server_busy",
+            "The server is busy; please retry shortly",
+            None,
+            {"Retry-After": "1"},
+        )
 
     @app.exception_handler(Exception)
     async def _unhandled(request: Request, exc: Exception) -> JSONResponse:

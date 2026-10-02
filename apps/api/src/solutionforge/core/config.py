@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     # Pool per process. Free/serverless Postgres tiers have low connection limits.
     database_pool_size: int = Field(default=10, ge=1, le=100)
     database_max_overflow: int = Field(default=20, ge=0, le=100)
+    # Fail fast when the pool is exhausted (503 + Retry-After) instead of queueing for 30 s.
+    database_pool_timeout_seconds: float = Field(default=10, gt=0, le=60)
 
     # JWT. Required outside dev/test; see ``_require_secrets``.
     jwt_secret: SecretStr | None = None

@@ -27,6 +27,9 @@ services:
       # One free instance: run the worker loops in-process and migrate on start.
       - key: SF_EMBEDDED_WORKER
         value: "true"
+      # Free instances get a fraction of a CPU: more processes would only add memory.
+      - key: WEB_CONCURRENCY
+        value: "1"
       - key: SF_MIGRATE_ON_START
         value: "true"
       - key: SF_WORKER_CONCURRENCY

@@ -24,6 +24,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import TSQUERY
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm import defer
 
 from solutionforge.domain.knowledge import Chunk, Document
 from solutionforge.retrieval.embeddings import EMBEDDING_DIM, Embedder, cosine, tokenize
@@ -158,6 +159,8 @@ class Retriever:
             sa.select(Chunk, Document.title)
             .join(Document, Document.id == Chunk.document_id)
             .where(Chunk.id.in_([r.chunk_id for r in ranked]))
+            # Never load the vectors to build results (1024 floats parsed per hit, unused).
+            .options(defer(Chunk.embedding))
         )
         by_id = {c.id: (c, title) for c, title in rows}
         hits = []

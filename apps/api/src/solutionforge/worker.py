@@ -31,6 +31,7 @@ async def main() -> None:
         settings.database_url,
         pool_size=settings.database_pool_size,
         max_overflow=settings.database_max_overflow,
+        pool_timeout=settings.database_pool_timeout_seconds,
     )
     sessionmaker = build_sessionmaker(db)
     retriever = build_retriever(sessionmaker)
