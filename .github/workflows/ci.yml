@@ -108,10 +108,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      # Scan the whole history directly. (The action diffs against the previous push, which
+      # fails with git exit 128 on a repository's first push, where "before" is all zeros.)
       - name: TruffleHog (verified secrets, full history)
-        uses: trufflesecurity/trufflehog@v3.88.0
-        with:
-          extra_args: --only-verified --fail
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro" trufflesecurity/trufflehog:3.88.0
+          git file:///repo --only-verified --fail --no-update
 
   e2e:
     name: End-to-end (Playwright)
