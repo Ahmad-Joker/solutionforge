@@ -14,6 +14,7 @@ from solutionforge import __version__
 from solutionforge.api import health
 from solutionforge.api import metrics as metrics_api
 from solutionforge.api.errors import install_error_handlers
+from solutionforge.api.guard import RequestGuardMiddleware
 from solutionforge.api.middleware import RequestContextMiddleware
 from solutionforge.api.v1 import (
     approvals,
@@ -27,7 +28,7 @@ from solutionforge.api.v1 import (
     workflows,
 )
 from solutionforge.background import run_background
-from solutionforge.core.config import Settings, get_settings
+from solutionforge.core.config import Environment, Settings, get_settings
 from solutionforge.core.logging import configure_logging, get_logger
 from solutionforge.db.session import build_engine, build_sessionmaker
 from solutionforge.llm.factory import build_llm_service
@@ -46,7 +47,11 @@ from solutionforge.workflows.steps import default_registry
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    configure_logging(settings.log_level, json=settings.log_json)
+    configure_logging(
+        settings.log_level,
+        json=settings.log_json,
+        cache=settings.environment != Environment.TEST,
+    )
     configure_tracing("solutionforge-api", otlp_endpoint=settings.otel_exporter_otlp_endpoint)
     passwords.configure(settings.password_hash_profile)
 
@@ -104,6 +109,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
         expose_headers=["X-Request-ID"],
     )
+    # Inner to RequestContextMiddleware so rejections carry the request ID.
+    app.add_middleware(RequestGuardMiddleware, max_bytes=settings.max_request_bytes)
     app.add_middleware(RequestContextMiddleware)
 
     v1 = APIRouter(prefix="/api/v1")

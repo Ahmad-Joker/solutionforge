@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from solutionforge.core.clock import utcnow
 from solutionforge.core.logging import get_logger
+from solutionforge.core.text import has_nul
 from solutionforge.domain.approvals import Approval, ApprovalStatus
 from solutionforge.domain.audit import AuditEventType
 from solutionforge.domain.policy import OrgPolicy
@@ -166,6 +167,11 @@ class ToolExecutor:
         if installation is None or not installation.enabled:
             raise ToolNotEnabled(f"tool {tool_name} is not enabled for this organization")
 
+        if has_nul(args):  # any connector, any field: NUL never reaches a target system
+            raise ToolInputInvalid(
+                f"invalid arguments for {tool_name}",
+                errors=[{"loc": [], "msg": "NUL characters are not allowed"}],
+            )
         try:
             parsed = spec.input_model.model_validate(args)
         except ValidationError as exc:

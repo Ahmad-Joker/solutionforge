@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     metrics_token: SecretStr | None = None
     worker_metrics_port: int | None = Field(default=None, ge=1024, le=65535)
 
+    # Hard cap on request bodies, enforced while streaming (documents are ≤1M chars; JSON
+    # escaping can expand that, hence the headroom).
+    max_request_bytes: int = Field(default=8 * 1024 * 1024, ge=1024)
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     @field_validator(

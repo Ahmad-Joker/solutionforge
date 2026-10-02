@@ -1,4 +1,4 @@
-"""Built-in, deterministic step types. LLM/tool/retrieval steps arrive in later phases."""
+"""Built-in, deterministic step types (no model, tool or network access)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from solutionforge.security.pii import ALL_KINDS, PIIKind, redact
 from solutionforge.workflows import expressions
 from solutionforge.workflows.expressions import Predicate
 from solutionforge.workflows.registry import (
@@ -154,5 +155,30 @@ class FailStep(StepHandler[FailConfig]):
         raise StepError(str(message), code=config.code)
 
 
+# --------------------------------------------------------------------------- redact
+
+
+class RedactConfig(_Strict):
+    value: Any = Field(description="expression or literal; every string inside is redacted")
+    kinds: list[PIIKind] = Field(default_factory=lambda: list(ALL_KINDS), min_length=1)
+
+
+class RedactStep(StepHandler[RedactConfig]):
+    type = "redact"
+    config_model = RedactConfig
+    description = (
+        "Mask structured PII (emails, payment cards, IBANs, US SSNs, phone numbers) in a value "
+        "before it reaches a model, ticket or message. Rule-based; does not detect names."
+    )
+
+    async def run(self, config: RedactConfig, ctx: StepContext) -> StepResult:
+        try:
+            value = expressions.resolve(config.value, ctx.scope)
+        except expressions.ExpressionError as exc:
+            raise StepError(str(exc), code="expression_error") from exc
+        redacted, counts = redact(value, tuple(config.kinds))
+        return StepResult(output={"value": redacted, "counts": dict(counts)})
+
+
 def builtin_handlers() -> list[StepHandler[Any]]:
-    return [TransformStep(), ConditionStep(), ApprovalStep(), FailStep()]
+    return [TransformStep(), ConditionStep(), ApprovalStep(), FailStep(), RedactStep()]

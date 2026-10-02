@@ -12,11 +12,12 @@ from datetime import date, timedelta
 from typing import Annotated, Literal
 
 import sqlalchemy as sa
-from pydantic import EmailStr, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, EmailStr, Field, StringConstraints, model_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from solutionforge.core.clock import utcnow
+from solutionforge.core.text import multiline, single_line
 from solutionforge.domain.simulated import SimCustomer, SimMessage, SimOrder, SimRefund, SimTicket
 from solutionforge.security.rbac import Permission
 from solutionforge.tools.spec import (
@@ -29,12 +30,16 @@ from solutionforge.tools.spec import (
     ToolSpec,
 )
 
-CustomerRef = Annotated[str, StringConstraints(pattern=r"^C-\d{4,8}$")]
-OrderRef = Annotated[str, StringConstraints(pattern=r"^O-\d{4,8}$")]
+# [0-9], not \d: the Rust regex engine's \d also matches non-ASCII digits (e.g. "C-١٢٣٤").
+CustomerRef = Annotated[str, StringConstraints(pattern=r"^C-[0-9]{4,8}$")]
+OrderRef = Annotated[str, StringConstraints(pattern=r"^O-[0-9]{4,8}$")]
 TicketRef = Annotated[str, StringConstraints(pattern=r"^T-[0-9A-F]{8}$")]
-# Single line: no CR/LF, which blocks header injection in email subjects.
-OneLine = Annotated[str, StringConstraints(min_length=1, max_length=200, pattern=r"^[^\r\n]+$")]
-Body = Annotated[str, StringConstraints(min_length=1, max_length=5000)]
+# Single line: no line breaks of any kind (CR/LF, VT, FF, NEL, U+2028/9 — all of which
+# Python's email/str.splitlines treat as breaks), no control or bidi-override characters.
+OneLine = Annotated[
+    str, StringConstraints(min_length=1, max_length=200), AfterValidator(single_line)
+]
+Body = Annotated[str, StringConstraints(min_length=1, max_length=5000), AfterValidator(multiline)]
 Tier = Literal["standard", "gold", "platinum"]
 
 

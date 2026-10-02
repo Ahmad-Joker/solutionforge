@@ -15,6 +15,15 @@ from solutionforge.observability import metrics
 
 log = get_logger("solutionforge.access")
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{8,64}$")
+# API responses carry tenant data: never sniffed, framed, cached, or leaked via Referer.
+SECURITY_HEADERS = (
+    ("X-Content-Type-Options", "nosniff"),
+    ("X-Frame-Options", "DENY"),
+    ("Cache-Control", "no-store"),
+    ("Referrer-Policy", "no-referrer"),
+)
+# Data responses can't run anything; HTML (the /docs UI) keeps its own needs.
+_DATA_CSP = "default-src 'none'; frame-ancestors 'none'"
 
 
 class RequestContextMiddleware:
@@ -40,7 +49,12 @@ class RequestContextMiddleware:
             nonlocal status
             if message["type"] == "http.response.start":
                 status = message["status"]
-                MutableHeaders(scope=message)["X-Request-ID"] = request_id
+                headers = MutableHeaders(scope=message)
+                headers["X-Request-ID"] = request_id
+                for name, value in SECURITY_HEADERS:
+                    headers.setdefault(name, value)
+                if not headers.get("content-type", "").startswith("text/html"):
+                    headers.setdefault("Content-Security-Policy", _DATA_CSP)
             await send(message)
 
         try:

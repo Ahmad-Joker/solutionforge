@@ -200,7 +200,16 @@ queue depth), Grafana dashboards as code.
 ## Phase 13 — Docker (full stack incl. worker, web, observability)
 ## Phase 14 — GitHub Actions: release pipeline (build → test → eval → staging → smoke → prod, rollback)
 ## Phase 15 — Cloud deployment (AWS: ECS Fargate + RDS + ElastiCache; Terraform stretch goal)
-## Phase 16 — Security testing (prompt injection, malicious docs, PII extraction, tool-arg injection, looping)
+## Phase 16 — Security testing ✅
+
+- [x] Red-team suite (models scripted to comply): indirect injection via KB documents, fake citations, tool-arg injection, malicious documents, PII in logs, runaway cost loops
+- [x] Fixed: streaming body-size limit (413); NUL rejected at the edge, rejected in tool args, scrubbed in JSON writes; single-line fields reject all Unicode line breaks + bidi overrides; ASCII-only reference digits; API security headers; Trojan-Source guard test; pip upgraded
+- [x] `redact` step: deterministic PII masking (email, Luhn cards, mod-97 IBANs, US SSNs, phones) with property tests
+- [x] CI: `npm audit` (prod, high+), TruffleHog verified-secret scan; `pip-audit` clean
+- [ ] Strict numeric mode for tool contracts; DAST (ZAP) against a deployed env; image scanning (Trivy); dependency-update bot
+- [ ] NER-based PII detection (names/addresses) as a separate, labelled control
+
+Findings and residual risks: [SECURITY_TESTING.md](SECURITY_TESTING.md).
 ## Phase 17 — Performance / load testing (k6 or Locust; measured p50/p95/p99)
 ## Phase 18 — Three customer case studies (Support Ops, Business Research, Ops Automation)
 ## Phase 19 — Documentation & portfolio polish

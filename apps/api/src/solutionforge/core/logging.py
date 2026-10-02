@@ -9,7 +9,8 @@ import structlog
 from solutionforge.observability.tracing import log_trace_ids
 
 
-def configure_logging(level: str = "INFO", *, json: bool = True) -> None:
+def configure_logging(level: str = "INFO", *, json: bool = True, cache: bool = True) -> None:
+    """``cache=False`` (tests) lets structlog.testing.capture_logs see every logger."""
     renderer: structlog.types.Processor = (
         structlog.processors.JSONRenderer() if json else structlog.dev.ConsoleRenderer()
     )
@@ -24,7 +25,7 @@ def configure_logging(level: str = "INFO", *, json: bool = True) -> None:
             renderer,
         ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.getLevelName(level.upper())),
-        cache_logger_on_first_use=True,
+        cache_logger_on_first_use=cache,
     )
 
 
