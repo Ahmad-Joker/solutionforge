@@ -76,7 +76,7 @@ from solutionforge.llm.types import (
     ToolCallingProvider,
     Usage,
 )
-from solutionforge.retrieval.search import Retriever
+from solutionforge.retrieval.search import Retriever, Strategy
 from solutionforge.security.rbac import Permission
 from solutionforge.services import audit_service
 from solutionforge.services.audit_service import RequestMeta
@@ -122,6 +122,7 @@ class AssistantConfig:
     max_retries: int = 2
     max_tokens: int = 1024
     top_k: int = 4
+    retrieval_strategy: Literal["hybrid", "dense", "keyword"] = "hybrid"
     run_budget_micro_usd: int = 50_000
     max_drafts: int = 1
     tool_mode: Literal["model", "fixed"] = "model"
@@ -138,6 +139,7 @@ class AssistantConfig:
             max_retries=settings.assistant_max_retries,
             max_tokens=settings.assistant_max_tokens,
             top_k=settings.assistant_top_k,
+            retrieval_strategy=settings.assistant_retrieval_strategy,
             run_budget_micro_usd=usd_to_micro(Decimal(str(settings.assistant_run_budget_usd))),
         )
         return cls(**{**asdict(base), **overrides})
@@ -162,6 +164,8 @@ class _Run:
     retrieved: dict[str, dict[str, Any]] = field(default_factory=dict)
     drafts: list[uuid.UUID] = field(default_factory=list)
     ticket_lookups: int = 0
+    # Extra, display-safe detail the current tool call adds to its event (e.g. result IDs).
+    event_detail: dict[str, Any] = field(default_factory=dict)
 
 
 class _Stop(Exception):
@@ -489,7 +493,8 @@ class AssistantService:
             raise _Stop(RunStatus.LIMIT_REACHED, "deadline reached during a tool call") from None
         ms = _ms(self.clock() - t0)
         st.tool_ms += ms
-        await self._event(st, "tool", call.name[:64], outcome, {"args": summary}, ms)
+        detail, st.event_detail = {"args": summary, **st.event_detail}, {}
+        await self._event(st, "tool", call.name[:64], outcome, detail, ms)
         return content, is_error
 
     async def _dispatch(self, st: _Run, args: Any) -> tuple[str, bool, str]:
@@ -508,6 +513,7 @@ class AssistantService:
             knowledge_base_id=st.kb_id,
             query=args.query,
             top_k=st.cfg.top_k,
+            strategy=Strategy(st.cfg.retrieval_strategy),
         )
         st.retrieval_ms += _ms(self.clock() - t0)
         passages = []
@@ -529,6 +535,7 @@ class AssistantService:
                     "text": h.text[:1500],
                 }
             )
+        st.event_detail = {"results": [p["source_id"] for p in passages]}
         payload: dict[str, Any] = {"passages": passages}
         if not passages:
             payload["note"] = (
@@ -549,6 +556,7 @@ class AssistantService:
             # Same answer for "other tenant's ticket" and "no such ticket": no existence leak.
             return f"No ticket {args.ticket_id} exists for this organization.", True, "not_found"
         out = {"ticket_id": t.ref, "status": t.status, "priority": t.priority, "subject": t.subject}
+        st.event_detail = {"status": t.status}
         return json.dumps(out), False, "found"
 
     async def _draft(self, st: _Run, args: DraftArgs) -> tuple[str, bool, str]:
@@ -600,6 +608,7 @@ class AssistantService:
                 assert existing is not None
         if existing.id not in st.drafts:
             st.drafts.append(existing.id)
+        st.event_detail = {"draft_id": str(existing.id), "requires_approval": True}
         out = {
             "draft_id": str(existing.id),
             "status": "pending_approval",

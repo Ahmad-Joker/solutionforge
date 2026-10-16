@@ -137,6 +137,8 @@ class Settings(BaseSettings):
     assistant_max_retries: int = Field(default=2, ge=0, le=5)
     assistant_max_tokens: int = Field(default=1024, ge=64, le=8192)
     assistant_top_k: int = Field(default=4, ge=1, le=20)
+    # hybrid = dense + keyword (RRF). See evals/retrieval for the measured comparison.
+    assistant_retrieval_strategy: Literal["hybrid", "dense", "keyword"] = "hybrid"
     # Per-run spend cap (estimated from list prices), in USD.
     assistant_run_budget_usd: float = Field(default=0.05, gt=0, le=10)
 
