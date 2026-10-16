@@ -63,6 +63,26 @@ Semantic dense-only retrieval finds the service-area document.
 - Search latency roughly doubles on this SQLite setup. The extra ~70 ms median is
   consistent with embedding the query on CPU, but that step was not timed on its own.
 
+**On PostgreSQL 16 + pgvector** ([artifact](../evals/retrieval/1016-155811/report.md)).
+This ran in a local Docker container, after the `HP-SOP-01` status-name fix, so the corpus
+fingerprint differs by one document from the SQLite runs.
+
+| Embedder | Chunking | Strategy | Hit rate @3 | Median ms | p95 ms |
+|---|---|---|---|---|---|
+| hashing-v1 | 800/120 | hybrid | 11/12 | 53.6 | 70.9 |
+| hashing-v1 | 800/120 | dense | 11/12 | 28.1 | 46.4 |
+| hashing-v1 | 200/30 | hybrid | 10/12 | 50.4 | 62.6 |
+| hashing-v1 | 200/30 | dense | 11/12 | 33.6 | 45.4 |
+| bge-small-en-v1.5 | 800/120 | hybrid | 11/12 | 33.0 | 47.6 |
+| bge-small-en-v1.5 | 800/120 | **dense** | **12/12** | **27.0** | 41.6 |
+| bge-small-en-v1.5 | 200/30 | hybrid | 11/12 | 33.0 | 39.9 |
+| bge-small-en-v1.5 | 200/30 | dense | 12/12 | 32.3 | 57.2 |
+
+- **Same ranking of configurations as on SQLite.** Semantic dense retrieval is the only
+  one at 12/12, and on pgvector it is also the fastest median (27 ms).
+- **One new miss:** lexical 200/30 hybrid also misses dev-ans-03 (Saturday hours).
+  PostgreSQL's full-text ranking differs from the SQLite keyword fallback.
+
 ## 2. One measured improvement: semantic dense retrieval (MEASURED + FIXTURE)
 
 **Change:** knowledge-base embedder `hashing-v1` → `bge-small-en-v1.5`, assistant retrieval
@@ -74,6 +94,7 @@ when it is enabled.
 |---|---|---|---|
 | Retrieval hit rate @3, 12 dev questions (MEASURED) | 11/12 | 12/12 | [retrieval](../evals/retrieval/1016-150627/report.md) |
 | Median search latency, SQLite (MEASURED) | 74 ms | 141 ms | same |
+| Median search latency, PostgreSQL + pgvector (MEASURED) | 53.6 ms | 27.0 ms | [pgvector](../evals/retrieval/1016-155811/report.md) |
 | Agent eval `retrieval` dimension (FIXTURE) | 16/17 | 17/17 | [before](../evals/assistant/results/1016-150957-dev/report.md), [after](../evals/assistant/results/1016-150924-dev/report.md) |
 | Agent eval cases passing (FIXTURE) | 16/30 | 20/30 | same |
 | Agent eval `grounded_citations` (FIXTURE) | 9/13 | 8/13 | same |

@@ -223,3 +223,15 @@ def test_cost_is_unknown_not_zero_when_nothing_ran() -> None:
     ]
     s = summarize(rows)
     assert s["cost"]["total_micro_usd"] is None and s["not_run"] == 1 and s["pass_rate"] is None
+
+
+def test_demo_tickets_fit_their_columns() -> None:
+    """Regression: SQLite ignores VARCHAR lengths, PostgreSQL enforces them
+    ('waiting_on_customer' overflowed sim_tickets.status VARCHAR(16))."""
+    from solutionforge.assistant.corpus import load_tickets
+    from solutionforge.domain import SimTicket
+
+    cols = SimTicket.__table__.c
+    for t in load_tickets():
+        for field in ("ref", "subject", "priority", "status"):
+            assert len(t[field]) <= cols[field].type.length, (t["ref"], field)

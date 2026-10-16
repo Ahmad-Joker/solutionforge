@@ -45,7 +45,13 @@ assistant E2E.
 ## Not verified in this audit
 
 - **Live Anthropic calls:** no `SF_ANTHROPIC_API_KEY` in the environment.
-- **PostgreSQL + pgvector run of the new tests:** see the PostgreSQL section of
-  `docs/ASSISTANT_BENCHMARKS.md`, or CI, for status. All local runs above used SQLite.
+- **PostgreSQL + pgvector:** checked locally in a throwaway `pgvector/pgvector:pg16`
+  container (Docker), not only on SQLite.
+  - `test_assistant.py`: **26 passed**, including concurrent approvals under real row locks.
+  - Knowledge, platform (incl. migration drift) and security suites: 239 passed. They ran
+    together with the assistant tests that were failing at the time.
+  - The first run found a real bug that SQLite hid: the demo status `waiting_on_customer`
+    overflowed `VARCHAR(16)`. It is fixed, and a guard test now catches it on SQLite.
+  - The rest of the 733-test suite was **not** re-run on PostgreSQL locally; CI covers it.
 - **Deployed demo:** the Render deployment has not been updated with this branch.
   Deploying needs the account owner's go-ahead.

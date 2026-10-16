@@ -20,4 +20,4 @@ Every support ticket has an ID in the format T- followed by 8 characters (digits
 - Low: questions, invoice copies and feedback. First response within 3 business days.
 
 ## Statuses
-Tickets move through open, in_progress, waiting_on_customer and closed.
+Tickets move through open, in_progress, waiting_customer and closed.

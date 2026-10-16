@@ -4,6 +4,6 @@
     {"ref": "T-1A2B3C4D", "subject": "No hot water after water heater service", "priority": "high", "status": "open"},
     {"ref": "T-5E6F7A8B", "subject": "Change bi-weekly cleaning day to Thursdays", "priority": "normal", "status": "in_progress"},
     {"ref": "T-9C0D1E2F", "subject": "Copy of March invoice", "priority": "low", "status": "closed"},
-    {"ref": "T-3D4E5F60", "subject": "EV charger quote follow-up", "priority": "normal", "status": "waiting_on_customer"}
+    {"ref": "T-3D4E5F60", "subject": "EV charger quote follow-up", "priority": "normal", "status": "waiting_customer"}
   ]
 }

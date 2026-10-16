@@ -178,7 +178,7 @@ docker compose up --build --wait                   # runs migrations (0011 adds 
 Open http://localhost:3000, sign up, create an organization, go to **Assistant** and click
 **Load demo content**. That calls `POST /api/v1/orgs/{org}/assistant/demo-setup`, which is
 idempotent. It loads the 20 core documents and 4 demo tickets: `T-1A2B3C4D` (open),
-`T-5E6F7A8B` (in progress), `T-9C0D1E2F` (closed), `T-3D4E5F60` (waiting on customer).
+`T-5E6F7A8B` (in progress), `T-9C0D1E2F` (closed), `T-3D4E5F60` (waiting_customer).
 The workers index the documents in the background.
 
 Re-running demo setup is safe. Unchanged documents are skipped, and a changed document
