@@ -66,6 +66,9 @@ export function Button({
 
 const STATUS_COLORS: Record<string, string> = {
   succeeded: "bg-emerald-100 text-emerald-800",
+  completed: "bg-emerald-100 text-emerald-800",
+  insufficient_evidence: "bg-amber-100 text-amber-800",
+  limit_reached: "bg-orange-100 text-orange-800",
   ready: "bg-emerald-100 text-emerald-800",
   approved: "bg-emerald-100 text-emerald-800",
   ok: "bg-emerald-100 text-emerald-800",

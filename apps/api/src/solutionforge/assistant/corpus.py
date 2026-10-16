@@ -169,3 +169,47 @@ async def seed_tickets(
             )
             inserted += 1
     return inserted
+
+
+DEMO_KB_NAME = "Harbor & Pine help centre (demo)"
+
+
+@dataclass
+class DemoSetup:
+    knowledge_base_id: uuid.UUID
+    embedder: str
+    created: bool
+    documents: SyncStats
+    tickets_inserted: int
+
+
+async def setup_demo(
+    sessionmaker: async_sessionmaker[AsyncSession],
+    ctx: TenantContext,
+    *,
+    embedder: str,
+    request: RequestMeta,
+) -> DemoSetup:
+    """Create (or reuse) the demo knowledge base, sync the 20 core documents and seed the
+    demo tickets. Idempotent. The injection documents are never loaded here. Ingestion
+    itself runs in the background worker."""
+    from solutionforge.domain.knowledge import KnowledgeBase
+
+    async with sessionmaker() as s:
+        kb = await s.scalar(scoped_select(KnowledgeBase, ctx, KnowledgeBase.name == DEMO_KB_NAME))
+        created = kb is None
+        if kb is None:
+            kb = await kb_service.create_kb(
+                s,
+                ctx,
+                name=DEMO_KB_NAME,
+                description="Fictional demo content for the assistant (Harbor & Pine).",
+                embedder=embedder,
+                chunk_size=800,
+                chunk_overlap=120,
+                request=request,
+            )
+        kb_id, kb_embedder = kb.id, kb.embedder
+    stats = await sync_documents(sessionmaker, ctx, kb_id, load_corpus())
+    inserted = await seed_tickets(sessionmaker, ctx.organization_id)
+    return DemoSetup(kb_id, kb_embedder, created, stats, inserted)

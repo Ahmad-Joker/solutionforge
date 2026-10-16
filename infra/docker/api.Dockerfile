@@ -16,6 +16,9 @@ WORKDIR /app
 COPY --from=build /opt/venv /opt/venv
 COPY apps/api/alembic.ini ./
 COPY apps/api/migrations ./migrations
+# Fictional demo corpus for the assistant (POST /orgs/{org}/assistant/demo-setup).
+COPY corpus/harbor-pine ./corpus/harbor-pine
+ENV SF_CORPUS_DIR=/app/corpus/harbor-pine
 COPY --chmod=755 infra/docker/api-start.sh /usr/local/bin/api-start
 COPY --chmod=755 infra/docker/sf-env.sh /usr/local/bin/sf-env
 USER app

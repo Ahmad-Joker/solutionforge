@@ -262,3 +262,37 @@ async def reject_draft(
     draft_id: uuid.UUID, request: Request, ctx: TenantDep, meta: RequestMetaDep
 ) -> TicketDraft:
     return await _svc(request).reject_draft(ctx, draft_id, meta)
+
+
+class DemoSetupOut(BaseModel):
+    knowledge_base_id: uuid.UUID
+    knowledge_base_name: str
+    embedder: str
+    created: bool
+    documents: dict[str, int]
+    tickets_inserted: int
+    demo_ticket_ids: list[str]
+
+
+@router.post("/demo-setup", response_model=DemoSetupOut)
+async def demo_setup(request: Request, ctx: TenantDep, meta: RequestMetaDep) -> DemoSetupOut:
+    """Load the fictional Harbor & Pine corpus and demo tickets into this organization."""
+    from dataclasses import asdict
+
+    from solutionforge.assistant.corpus import DEMO_KB_NAME, load_tickets, setup_demo
+
+    ensure(ctx, Permission.KNOWLEDGE_WRITE)
+    embedders = request.app.state.retriever.embedders
+    # Prefer the semantic embedder when it is enabled (evals/retrieval: better hit rate @3).
+    semantic = request.app.state.settings.semantic_embedder_name
+    embedder = semantic if semantic in embedders.names() else embedders.default.name
+    result = await setup_demo(request.app.state.sessionmaker, ctx, embedder=embedder, request=meta)
+    return DemoSetupOut(
+        knowledge_base_id=result.knowledge_base_id,
+        knowledge_base_name=DEMO_KB_NAME,
+        embedder=result.embedder,
+        created=result.created,
+        documents=asdict(result.documents),
+        tickets_inserted=result.tickets_inserted,
+        demo_ticket_ids=[t["ref"] for t in load_tickets()],
+    )

@@ -574,3 +574,47 @@ async def test_info_lists_fixture_when_no_key(client: AsyncClient, demo: Demo) -
     r = await client.get(f"/api/v1/orgs/{demo.org}/assistant", headers=demo.owner.headers)
     assert r.status_code == 200
     assert r.json()["models"] == ["fixture:policy-v1"]
+
+
+async def test_demo_setup_is_idempotent_and_needs_write_access(
+    api: Api, client: AsyncClient, ingestor: IngestionWorker
+) -> None:
+    owner = await api.user()
+    org = await api.org(owner)
+    url = f"/api/v1/orgs/{org}/assistant/demo-setup"
+    first = await client.post(url, headers=owner.headers)
+    assert first.status_code == 200, first.text
+    body = first.json()
+    assert body["created"] is True and body["documents"]["added"] == 20
+    assert body["tickets_inserted"] == 4 and "T-1A2B3C4D" in body["demo_ticket_ids"]
+    await ingestor.run_until_idle()
+    again = (await client.post(url, headers=owner.headers)).json()
+    assert again["created"] is False and again["knowledge_base_id"] == body["knowledge_base_id"]
+    assert again["documents"] == {"added": 0, "unchanged": 20, "replaced": 0}
+    assert again["tickets_inserted"] == 0
+    viewer = await api.member(org, owner, "viewer")
+    assert (await client.post(url, headers=viewer.headers)).status_code == 403
+
+
+async def test_changed_document_replaces_its_previous_version(app: FastAPI, demo: Demo) -> None:
+    from dataclasses import replace
+
+    from solutionforge.assistant.corpus import load_corpus, sync_documents
+    from solutionforge.domain import Document
+
+    docs = load_corpus()
+    changed = [
+        replace(d, body=d.body + "\nUpdated.\n") if d.doc_id == "HP-POL-02" else d for d in docs
+    ]
+    stats = await sync_documents(app.state.sessionmaker, demo.ctx, uuid.UUID(demo.kb), changed)
+    assert (stats.added, stats.unchanged, stats.replaced) == (0, 19, 1)
+    async with app.state.sessionmaker() as s:
+        copies = (
+            await s.scalars(
+                sa.select(Document).where(
+                    Document.knowledge_base_id == uuid.UUID(demo.kb),
+                    Document.doc_metadata["doc_id"].as_string() == "HP-POL-02",
+                )
+            )
+        ).all()
+    assert len(copies) == 1 and copies[0].content.endswith("Updated.\n")

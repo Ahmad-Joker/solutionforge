@@ -202,3 +202,71 @@ export interface DeploymentDecision {
   decided_by_user_id: string | null;
   created_at: string;
 }
+
+export interface AssistantCitation {
+  source_id: string;
+  doc_id: string;
+  title: string;
+  version: string | null;
+  section: string | null;
+}
+
+export interface TicketDraft {
+  id: string;
+  run_id: string | null;
+  subject: string;
+  description: string;
+  content_hash: string;
+  status: "pending" | "approved" | "rejected";
+  ticket_ref: string | null;
+  decided_by_user_id: string | null;
+  decided_at: string | null;
+  created_at: string;
+}
+
+export interface AssistantRun {
+  id: string;
+  status: "running" | "completed" | "insufficient_evidence" | "limit_reached" | "cancelled" | "failed";
+  question: string;
+  answer: string | null;
+  citations: AssistantCitation[];
+  provider: string;
+  model: string;
+  prompt_version: string;
+  corpus_version: string | null;
+  config: Record<string, unknown>;
+  turns: number;
+  tool_calls: number;
+  retries: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  cache_write_1h_tokens: number;
+  cost_usd: string | null;
+  latency_ms: number;
+  retrieval_ms: number;
+  tool_ms: number;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+  drafts: TicketDraft[];
+}
+
+export interface AssistantEvent {
+  seq: number;
+  kind: "provider" | "tool" | "check" | "approval";
+  name: string;
+  outcome: string;
+  detail: Record<string, unknown>;
+  latency_ms: number;
+  created_at: string;
+}
+
+export interface AssistantInfo {
+  models: string[];
+  default_model: string;
+  prompt_version: string;
+  tools: { name: string; description: string }[];
+  limits: Record<string, unknown>;
+}
