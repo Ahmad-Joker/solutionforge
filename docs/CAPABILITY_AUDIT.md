@@ -15,7 +15,7 @@ Earlier claims (test counts, retrieval scores) were treated as unverified and re
 **Baseline before changes:** `pytest -n 6` → 679 passed, 2 skipped (SQLite). Ruff and mypy
 (strict) clean.
 
-**After changes:** `pytest -n 6` → **733 passed, 2 skipped**. Ruff, ruff format and mypy
+**After changes:** `pytest -n 6` → **734 passed, 2 skipped**. Ruff, ruff format and mypy
 (strict, 121 files) clean. `npx playwright test` → **6 passed**, including the new
 assistant E2E.
 
@@ -52,6 +52,6 @@ assistant E2E.
     together with the assistant tests that were failing at the time.
   - The first run found a real bug that SQLite hid: the demo status `waiting_on_customer`
     overflowed `VARCHAR(16)`. It is fixed, and a guard test now catches it on SQLite.
-  - The rest of the 733-test suite was **not** re-run on PostgreSQL locally; CI covers it.
+  - The rest of the 734-test suite was **not** re-run on PostgreSQL locally; CI covers it.
 - **Deployed demo:** the Render deployment has not been updated with this branch.
   Deploying needs the account owner's go-ahead.
