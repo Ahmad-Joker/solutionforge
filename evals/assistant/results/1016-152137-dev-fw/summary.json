@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "dataset": "dev.jsonl",
+    "mode": "FIXTURE",
+    "started": "2026-10-16T15:21:37+00:00",
+    "models": "fixture:policy-v1",
+    "tool_mode": "fixed",
+    "embedder": "hashing-v1",
+    "chunking": "800/120",
+    "top_k": 4,
+    "retrieval_strategy": "hybrid",
+    "prompt_version": "assistant-v1",
+    "corpus_version": "20docs-979cb91a99138588, 25docs-a35c925f6dfb1501",
+    "caps": "requests=None spend_usd=None (used: 30 requests, $0.0000)",
+    "database": "SQLite (throwaway)",
+    "label": "harness check: fixed workflow (ReAct baseline arm)",
+    "python": "3.13.0",
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "pricing_accessed": "2026-10-16"
+  },
+  "summaries": {
+    "fixture:policy-v1": {
+      "cases": 30,
+      "ran": 30,
+      "passed": 11,
+      "failed": 19,
+      "not_run": 0,
+      "pass_rate": 0.3667,
+      "dimensions": {
+        "retrieval": {
+          "passed": 16,
+          "applicable": 17
+        },
+        "tool_selection": {
+          "passed": 30,
+          "applicable": 30
+        },
+        "argument_validity": {
+          "passed": 29,
+          "applicable": 29
+        },
+        "task_completion": {
+          "passed": 11,
+          "applicable": 30
+        },
+        "grounded_citations": {
+          "passed": 0,
+          "applicable": 13
+        },
+        "abstention": {
+          "passed": 5,
+          "applicable": 17
+        },
+        "approval_enforcement": {
+          "passed": 4,
+          "applicable": 4
+        }
+      },
+      "categories": {
+        "answerable": {
+          "passed": 0,
+          "ran": 12,
+          "not_run": 0
+        },
+        "tool": {
+          "passed": 2,
+          "ran": 8,
+          "not_run": 0
+        },
+        "unanswerable": {
+          "passed": 5,
+          "ran": 5,
+          "not_run": 0
+        },
+        "injection": {
+          "passed": 4,
+          "ran": 5,
+          "not_run": 0
+        }
+      },
+      "latency_ms": {
+        "n": 30,
+        "median": 149.5,
+        "p95": 197.0
+      },
+      "cost": {
+        "total_micro_usd": 0,
+        "avg_per_attempt_micro_usd": 0,
+        "per_success_micro_usd": 0
+      },
+      "run_errors": 0,
+      "limit_reached": 0
+    }
+  }
+}

@@ -9,6 +9,7 @@ import type { Approval, Org } from "@/lib/types";
 
 const NAV = [
   ["", "Overview"],
+  ["/assistant", "Assistant"],
   ["/workflows", "Workflows"],
   ["/executions", "Executions"],
   ["/approvals", "Approvals"],

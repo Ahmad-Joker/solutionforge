@@ -79,6 +79,25 @@ Where a result is limited (laptop hardware, mock model), the page says so.
 | **Engineering** | Alembic migrations with a drift test; strict mypy; ruff (incl. bandit rules); CI on real PostgreSQL; Dockerfile (non-root) + compose stack |
 
 
+## Business assistant (tool calling)
+
+A support assistant for a fictional home-services company, on the Assistant page:
+
+- sourced answers, with citations verified against what the run actually retrieved;
+- ticket lookups;
+- ticket drafts that a person must approve.
+
+It uses Claude's **native tool use** through the Anthropic SDK. The loop is bounded by
+turn, tool-call, deadline and spend limits. Approval is bound to the exact draft content,
+so a ticket is created at most once.
+
+The project includes an agent eval suite (30 dev and 10 held-out cases), a retrieval
+comparison, and a ReAct paper note.
+
+[docs/ASSISTANT.md](docs/ASSISTANT.md) · [benchmarks](docs/ASSISTANT_BENCHMARKS.md) ·
+[capability audit](docs/CAPABILITY_AUDIT.md) · [demo script](docs/DEMO_SCRIPT.md) ·
+[evals](evals/assistant/README.md)
+
 ## Architecture
 
 ```mermaid
@@ -147,8 +166,11 @@ render.yaml          Free-tier deployment blueprint
 - **Hardware.** Performance numbers come from a laptop shared with the load generator.
 - **The AWS deployment is designed, not applied.** The live demo runs on free hosting
   (Render + Neon), and the smoke test passes against it.
-- **Not built yet:** PostgreSQL row-level security (deferred; see ADR-0011), semantic
-  embeddings (the embedder is lexical), NER-based PII detection, a built-in scheduler.
+- **The assistant has no live model results yet.** The eval and model-comparison runs need
+  an Anthropic API key, so they are recorded as BLOCKED. See
+  [docs/ASSISTANT_BENCHMARKS.md](docs/ASSISTANT_BENCHMARKS.md).
+- **Not built yet:** PostgreSQL row-level security (deferred; see ADR-0011), NER-based PII
+  detection, a built-in scheduler.
 
 The full backlog is in [docs/BACKLOG.md](docs/BACKLOG.md).
 

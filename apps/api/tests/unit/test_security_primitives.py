@@ -145,3 +145,14 @@ def test_fast_password_hashing_is_refused_outside_tests() -> None:
             jwt_secret="x" * 40,  # type: ignore[arg-type]
             password_hash_profile="fast-insecure-test",
         )
+
+
+def test_env_example_loads_as_is() -> None:
+    """`cp .env.example .env` must give a working dev configuration."""
+    from pathlib import Path
+
+    example = Path(__file__).resolve().parents[4] / ".env.example"
+    s = Settings(_env_file=example)  # type: ignore[call-arg]
+    assert s.anthropic_api_key is None and s.embedding_cache_dir is None
+    assert s.assistant_model == "anthropic:claude-haiku-5-5"
+    assert s.assistant_retrieval_strategy == "hybrid" and s.semantic_embedder_enabled is False

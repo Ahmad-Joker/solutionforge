@@ -39,7 +39,12 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: apps/api/pyproject.toml
-      - run: python -m pip install --upgrade pip && pip install -e ".[dev]" pip-audit
+      # The optional "semantic" extra is installed here so mypy (strict) type-checks the
+      # fastembed integration against the real package, and pip-audit covers its deps.
+      # The base install without it is tested by the backend-sqlite job.
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev,semantic]" pip-audit
+      - name: Semantic extra is installed (mypy must see it)
+        run: python -c "import fastembed"
       - name: Lint
         run: ruff check . && ruff format --check .
       - name: Type check
@@ -65,7 +70,7 @@ jobs:
           path: apps/api/coverage.xml
 
   backend-sqlite:
-    name: Backend tests (SQLite, fast path parity)
+    name: Backend tests (SQLite, base install without optional extras)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -78,6 +83,8 @@ jobs:
           cache: pip
           cache-dependency-path: apps/api/pyproject.toml
       - run: pip install -e ".[dev]"
+      - name: Base install has no optional extras
+        run: python -c "import importlib.util, sys; sys.exit(importlib.util.find_spec('fastembed') is not None)"
       - name: Tests (SQLite, parallel)
         run: pytest -q -n auto
 

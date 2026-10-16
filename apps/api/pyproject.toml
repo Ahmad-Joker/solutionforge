@@ -43,6 +43,10 @@ dev = [
     "pytest-xdist>=3.6",
     "hypothesis>=6.112",
 ]
+# Semantic embeddings (bge-small-en-v1.5 via ONNX). Optional: first use downloads ~65 MB.
+semantic = [
+    "fastembed>=0.9,<0.10",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/solutionforge"]

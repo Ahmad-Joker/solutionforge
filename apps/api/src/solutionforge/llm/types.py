@@ -51,7 +51,8 @@ class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0
-    cache_write_tokens: int = 0
+    cache_write_tokens: int = 0  # 5-minute cache writes
+    cache_write_1h_tokens: int = 0
 
     @property
     def total_tokens(self) -> int:
@@ -60,6 +61,16 @@ class Usage:
             + self.output_tokens
             + self.cache_read_tokens
             + self.cache_write_tokens
+            + self.cache_write_1h_tokens
+        )
+
+    def __add__(self, other: Usage) -> Usage:
+        return Usage(
+            self.input_tokens + other.input_tokens,
+            self.output_tokens + other.output_tokens,
+            self.cache_read_tokens + other.cache_read_tokens,
+            self.cache_write_tokens + other.cache_write_tokens,
+            self.cache_write_1h_tokens + other.cache_write_1h_tokens,
         )
 
 
@@ -69,6 +80,58 @@ class ProviderResponse:
     usage: Usage
     stop_reason: str
     request_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ToolSpec:
+    """A client tool offered to the model (Anthropic ``tools[]`` entry)."""
+
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+    strict: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ToolCall:
+    """A ``tool_use`` block the model emitted. ``input`` is untrusted until validated."""
+
+    id: str
+    name: str
+    input: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ConverseRequest:
+    """One tool-enabled turn. ``messages`` are Messages-API content-block dicts, so
+    ``tool_use`` / ``tool_result`` history round-trips unchanged."""
+
+    model: str
+    messages: tuple[dict[str, Any], ...]
+    system: str | None = None
+    tools: tuple[ToolSpec, ...] = ()
+    tool_choice: dict[str, Any] | None = None
+    max_tokens: int = 1024
+    timeout_seconds: float = 60.0
+
+
+@dataclass(frozen=True, slots=True)
+class ConverseResponse:
+    text: str
+    tool_calls: tuple[ToolCall, ...]
+    # The assistant turn as content blocks, to append to history verbatim.
+    content: tuple[dict[str, Any], ...]
+    stop_reason: str
+    usage: Usage
+    request_id: str | None = None
+
+
+class ToolCallingProvider(Protocol):
+    name: str
+
+    async def converse(self, request: ConverseRequest) -> ConverseResponse:
+        """One attempt of a tool-enabled turn. Raise :class:`LLMError`; never retry."""
+        ...
 
 
 class LLMProvider(Protocol):

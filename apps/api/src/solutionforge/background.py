@@ -39,7 +39,7 @@ async def run_background(
         concurrency=settings.worker_concurrency,
         poll_interval=settings.worker_poll_interval_seconds,
     )
-    ingestion = IngestionWorker(sessionmaker, retriever.embedder, worker_id=engine.worker_id)
+    ingestion = IngestionWorker(sessionmaker, retriever.embedders, worker_id=engine.worker_id)
     await asyncio.gather(
         worker.run(stop),
         ingestion.run(stop, poll_interval=settings.worker_poll_interval_seconds),

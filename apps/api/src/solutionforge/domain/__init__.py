@@ -1,6 +1,7 @@
 """ORM entities. Importing this package registers every table on ``Base.metadata``."""
 
 from solutionforge.domain.approvals import Approval, ApprovalStatus
+from solutionforge.domain.assistant import AssistantEvent, AssistantRun, DraftStatus, TicketDraft
 from solutionforge.domain.audit import AuditEvent, AuditEventType
 from solutionforge.domain.evaluation import (
     DeploymentDecision,
@@ -29,12 +30,15 @@ from solutionforge.domain.workflow import (
 __all__ = [
     "Approval",
     "ApprovalStatus",
+    "AssistantEvent",
+    "AssistantRun",
     "AuditEvent",
     "AuditEventType",
     "Chunk",
     "DeploymentDecision",
     "Document",
     "DocumentStatus",
+    "DraftStatus",
     "EvaluationCase",
     "EvaluationDataset",
     "EvaluationResult",
@@ -56,6 +60,7 @@ __all__ = [
     "SimRefund",
     "SimTicket",
     "StepStatus",
+    "TicketDraft",
     "ToolCall",
     "ToolCallStatus",
     "ToolInstallation",

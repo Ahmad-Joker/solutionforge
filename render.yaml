@@ -50,6 +50,19 @@ services:
       # Deterministic mock model: no API key, no spend.
       - key: SF_LLM_ENABLE_MOCK
         value: "true"
+      # Optional: enables live Claude models for the assistant. Server-side only (never
+      # sent to the browser); leave empty to run the fixture policy only. Spend is capped
+      # per run by SF_ASSISTANT_RUN_BUDGET_USD.
+      - key: SF_ANTHROPIC_API_KEY
+        sync: false
+      - key: SF_ASSISTANT_MODEL
+        value: anthropic:claude-haiku-5-5
+      - key: SF_ASSISTANT_RUN_BUDGET_USD
+        value: "0.02"
+      # The semantic embedder's memory use on the 512 MB free plan has not been measured,
+      # so the deployed demo keeps the lexical embedder.
+      - key: SF_SEMANTIC_EMBEDDER_ENABLED
+        value: "false"
       # Only Render's proxy can reach the container, so trust its forwarded headers.
       - key: FORWARDED_ALLOW_IPS
         value: "*"

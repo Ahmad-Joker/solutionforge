@@ -418,6 +418,7 @@ class _Totals:
             self.usage.output_tokens + u.output_tokens,
             self.usage.cache_read_tokens + u.cache_read_tokens,
             self.usage.cache_write_tokens + u.cache_write_tokens,
+            self.usage.cache_write_1h_tokens + u.cache_write_1h_tokens,
         )
         self.cost += cost
 

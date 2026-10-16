@@ -26,8 +26,16 @@ from sqlalchemy.dialects.postgresql import TSQUERY
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import defer
 
-from solutionforge.domain.knowledge import Chunk, Document
-from solutionforge.retrieval.embeddings import EMBEDDING_DIM, Embedder, cosine, tokenize
+from solutionforge.domain.knowledge import Chunk, Document, KnowledgeBase
+from solutionforge.retrieval.embeddings import (
+    EMBEDDING_DIM,
+    Embedder,
+    EmbedderRegistry,
+    as_registry,
+    cosine,
+    embed_query,
+    tokenize,
+)
 
 FILTER_KEY = re.compile(r"^[a-z_][a-z0-9_]{0,40}$")
 MAX_SCAN_CHUNKS = 50_000  # portable path only; production uses the HNSW index
@@ -58,12 +66,19 @@ class SearchHit:
     char_end: int
     score: float
     sources: dict[str, int] = field(default_factory=dict)  # strategy -> rank (1-based)
+    # The document's metadata as copied onto the chunk at ingestion (e.g. a stable doc_id).
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class Retriever:
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession], embedder: Embedder) -> None:
+    def __init__(
+        self,
+        sessionmaker: async_sessionmaker[AsyncSession],
+        embedder: Embedder | EmbedderRegistry,
+    ) -> None:
         self.sessionmaker = sessionmaker
-        self.embedder = embedder
+        self.embedders = as_registry(embedder)
+        self.embedder = self.embedders.default  # used for new knowledge bases
 
     async def search(
         self,
@@ -87,15 +102,25 @@ class Retriever:
             *[Chunk.chunk_metadata[k].as_string() == v for k, v in (filters or {}).items()],
         ]
         async with self.sessionmaker() as s:
+            embedder_name = await s.scalar(
+                sa.select(KnowledgeBase.embedder).where(
+                    KnowledgeBase.id == knowledge_base_id,
+                    KnowledgeBase.organization_id == organization_id,
+                )
+            )
+            if embedder_name is None:
+                return []
+            # Query with the same model that indexed this knowledge base.
+            embedder = self.embedders.get(embedder_name)
             pg = s.get_bind().dialect.name == "postgresql"
             if strategy == Strategy.HYBRID:
                 pool = max(top_k * 4, 20)
-                dense = await self._dense(s, scope, query, pool, pg, min_dense_score)
+                dense = await self._dense(s, scope, query, pool, pg, min_dense_score, embedder)
                 keyword = await self._keyword(s, scope, query, pool, pg)
                 fused = _rrf({"dense": dense, "keyword": keyword})[:top_k]
             else:
                 single = (
-                    await self._dense(s, scope, query, top_k, pg, min_dense_score)
+                    await self._dense(s, scope, query, top_k, pg, min_dense_score, embedder)
                     if strategy == Strategy.DENSE
                     else await self._keyword(s, scope, query, top_k, pg)
                 )
@@ -108,9 +133,16 @@ class Retriever:
     # ------------------------------------------------------------------ strategies
 
     async def _dense(
-        self, s: AsyncSession, scope: list[Any], query: str, k: int, pg: bool, min_score: float
+        self,
+        s: AsyncSession,
+        scope: list[Any],
+        query: str,
+        k: int,
+        pg: bool,
+        min_score: float,
+        embedder: Embedder,
     ) -> list[tuple[uuid.UUID, float]]:
-        [qvec] = await self.embedder.embed([query])
+        qvec = await embed_query(embedder, query)
         if pg:
             from pgvector.sqlalchemy import Vector
 
@@ -180,6 +212,7 @@ class Retriever:
                     char_end=c.char_end,
                     score=round(r.score, 6),
                     sources=r.sources,
+                    metadata=dict(c.chunk_metadata or {}),
                 )
             )
         return hits

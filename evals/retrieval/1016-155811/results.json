@@ -1,0 +1,1510 @@
+{
+  "meta": {
+    "when": "2026-10-16T15:58:11+00:00",
+    "questions": 12,
+    "question_source": "evals/assistant/dev.jsonl (answerable, labelled sources)",
+    "k": 3,
+    "strategies": "hybrid,dense (hybrid = dense + keyword, reciprocal rank fusion)",
+    "database": "PostgreSQL + pgvector",
+    "repeats": 3,
+    "setup_seconds_including_ingestion": 24.8
+  },
+  "configs": {
+    "hashing-v1:800:120:hybrid": {
+      "embedder": "hashing-v1",
+      "strategy": "hybrid",
+      "chunk_size": 800,
+      "chunk_overlap": 120,
+      "chunks": 93,
+      "hits": 11,
+      "n": 12,
+      "hit_rate_at_3": 0.9167,
+      "latency_ms_median": 53.62,
+      "latency_ms_p95": 70.9,
+      "cases": [
+        {
+          "case_id": "dev-ans-01",
+          "question": "How many days do I have to ask for a refund?",
+          "acceptable": [
+            "HP-POL-02",
+            "HP-SOP-04"
+          ],
+          "retrieved": [
+            "HP-POL-02#4",
+            "HP-SOP-04#3",
+            "HP-POL-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 23.88
+        },
+        {
+          "case_id": "dev-ans-02",
+          "question": "What does a standard plumbing call-out cost?",
+          "acceptable": [
+            "HP-SVC-01",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-SVC-01#2",
+            "HP-SVC-06#2",
+            "HP-SVC-01#0"
+          ],
+          "hit": true,
+          "latency_ms": 38.6
+        },
+        {
+          "case_id": "dev-ans-03",
+          "question": "What are your opening hours on Saturdays?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-POL-01#2",
+            "HP-SVC-01#3",
+            "HP-SVC-05#0"
+          ],
+          "hit": true,
+          "latency_ms": 52.41
+        },
+        {
+          "case_id": "dev-ans-04",
+          "question": "How much is the Pine Plus membership if I pay yearly?",
+          "acceptable": [
+            "HP-SVC-06"
+          ],
+          "retrieved": [
+            "HP-SVC-06#1",
+            "HP-SVC-06#0",
+            "HP-FAQ-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 54.83
+        },
+        {
+          "case_id": "dev-ans-05",
+          "question": "Is there a charge if I cancel less than 24 hours before my appointment?",
+          "acceptable": [
+            "HP-POL-01",
+            "HP-FAQ-01"
+          ],
+          "retrieved": [
+            "HP-POL-01#1",
+            "HP-POL-01#2",
+            "HP-FAQ-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 56.93
+        },
+        {
+          "case_id": "dev-ans-06",
+          "question": "How long is your workmanship guarantee?",
+          "acceptable": [
+            "HP-FAQ-03",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#0",
+            "HP-FAQ-03#1",
+            "HP-POL-05#0"
+          ],
+          "hit": true,
+          "latency_ms": 47.0
+        },
+        {
+          "case_id": "dev-ans-07",
+          "question": "Can I pay the technician in cash?",
+          "acceptable": [
+            "HP-FAQ-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-02#1",
+            "HP-SOP-03#0",
+            "HP-POL-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 51.91
+        },
+        {
+          "case_id": "dev-ans-08",
+          "question": "I think I smell gas in my kitchen. What should I do?",
+          "acceptable": [
+            "HP-FAQ-05",
+            "HP-SOP-02"
+          ],
+          "retrieved": [
+            "HP-SOP-02#1",
+            "HP-FAQ-05#2",
+            "HP-FAQ-05#1"
+          ],
+          "hit": true,
+          "latency_ms": 51.39
+        },
+        {
+          "case_id": "dev-ans-09",
+          "question": "What is the hourly rate for a deep clean?",
+          "acceptable": [
+            "HP-SVC-04"
+          ],
+          "retrieved": [
+            "HP-SVC-04#2",
+            "HP-FAQ-03#3",
+            "HP-SVC-04#3"
+          ],
+          "hit": true,
+          "latency_ms": 65.39
+        },
+        {
+          "case_id": "dev-ans-10",
+          "question": "Which towns do you cover?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#2",
+            "HP-FAQ-03#4",
+            "HP-SVC-01#3"
+          ],
+          "hit": false,
+          "latency_ms": 60.04
+        },
+        {
+          "case_id": "dev-ans-11",
+          "question": "How quickly will you reply if I make a complaint?",
+          "acceptable": [
+            "HP-POL-03"
+          ],
+          "retrieved": [
+            "HP-POL-03#1",
+            "HP-POL-03#2",
+            "HP-POL-03#3"
+          ],
+          "hit": true,
+          "latency_ms": 61.48
+        },
+        {
+          "case_id": "dev-ans-12",
+          "question": "How much does it cost to install an EV charger?",
+          "acceptable": [
+            "HP-SVC-03"
+          ],
+          "retrieved": [
+            "HP-SVC-03#2",
+            "HP-SVC-03#1",
+            "HP-POL-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 70.9
+        }
+      ]
+    },
+    "hashing-v1:800:120:dense": {
+      "embedder": "hashing-v1",
+      "strategy": "dense",
+      "chunk_size": 800,
+      "chunk_overlap": 120,
+      "chunks": 93,
+      "hits": 11,
+      "n": 12,
+      "hit_rate_at_3": 0.9167,
+      "latency_ms_median": 28.11,
+      "latency_ms_p95": 46.43,
+      "cases": [
+        {
+          "case_id": "dev-ans-01",
+          "question": "How many days do I have to ask for a refund?",
+          "acceptable": [
+            "HP-POL-02",
+            "HP-SOP-04"
+          ],
+          "retrieved": [
+            "HP-POL-02#4",
+            "HP-FAQ-01#1",
+            "HP-POL-02#0"
+          ],
+          "hit": true,
+          "latency_ms": 45.77
+        },
+        {
+          "case_id": "dev-ans-02",
+          "question": "What does a standard plumbing call-out cost?",
+          "acceptable": [
+            "HP-SVC-01",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-SVC-01#0",
+            "HP-SVC-01#2",
+            "HP-SVC-06#2"
+          ],
+          "hit": true,
+          "latency_ms": 46.43
+        },
+        {
+          "case_id": "dev-ans-03",
+          "question": "What are your opening hours on Saturdays?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-04#0",
+            "HP-SVC-05#0",
+            "HP-SVC-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 43.61
+        },
+        {
+          "case_id": "dev-ans-04",
+          "question": "How much is the Pine Plus membership if I pay yearly?",
+          "acceptable": [
+            "HP-SVC-06"
+          ],
+          "retrieved": [
+            "HP-SVC-06#0",
+            "HP-SVC-06#1",
+            "HP-FAQ-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 45.42
+        },
+        {
+          "case_id": "dev-ans-05",
+          "question": "Is there a charge if I cancel less than 24 hours before my appointment?",
+          "acceptable": [
+            "HP-POL-01",
+            "HP-FAQ-01"
+          ],
+          "retrieved": [
+            "HP-POL-01#1",
+            "HP-POL-01#2",
+            "HP-POL-01#4"
+          ],
+          "hit": true,
+          "latency_ms": 24.67
+        },
+        {
+          "case_id": "dev-ans-06",
+          "question": "How long is your workmanship guarantee?",
+          "acceptable": [
+            "HP-FAQ-03",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#0",
+            "HP-POL-05#0",
+            "HP-FAQ-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 25.42
+        },
+        {
+          "case_id": "dev-ans-07",
+          "question": "Can I pay the technician in cash?",
+          "acceptable": [
+            "HP-FAQ-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-02#1",
+            "HP-SOP-03#0",
+            "HP-POL-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 23.81
+        },
+        {
+          "case_id": "dev-ans-08",
+          "question": "I think I smell gas in my kitchen. What should I do?",
+          "acceptable": [
+            "HP-FAQ-05",
+            "HP-SOP-02"
+          ],
+          "retrieved": [
+            "HP-SOP-02#1",
+            "HP-FAQ-05#2",
+            "HP-FAQ-01#1"
+          ],
+          "hit": true,
+          "latency_ms": 30.8
+        },
+        {
+          "case_id": "dev-ans-09",
+          "question": "What is the hourly rate for a deep clean?",
+          "acceptable": [
+            "HP-SVC-04"
+          ],
+          "retrieved": [
+            "HP-SVC-04#2",
+            "HP-FAQ-04#0",
+            "HP-SOP-02#4"
+          ],
+          "hit": true,
+          "latency_ms": 32.51
+        },
+        {
+          "case_id": "dev-ans-10",
+          "question": "Which towns do you cover?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-01#1",
+            "HP-SOP-02#1",
+            "HP-SVC-01#1"
+          ],
+          "hit": false,
+          "latency_ms": 16.53
+        },
+        {
+          "case_id": "dev-ans-11",
+          "question": "How quickly will you reply if I make a complaint?",
+          "acceptable": [
+            "HP-POL-03"
+          ],
+          "retrieved": [
+            "HP-POL-03#2",
+            "HP-POL-03#1",
+            "HP-POL-01#4"
+          ],
+          "hit": true,
+          "latency_ms": 17.64
+        },
+        {
+          "case_id": "dev-ans-12",
+          "question": "How much does it cost to install an EV charger?",
+          "acceptable": [
+            "HP-SVC-03"
+          ],
+          "retrieved": [
+            "HP-SVC-03#1",
+            "HP-SVC-03#2",
+            "HP-POL-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 21.1
+        }
+      ]
+    },
+    "hashing-v1:200:30:hybrid": {
+      "embedder": "hashing-v1",
+      "strategy": "hybrid",
+      "chunk_size": 200,
+      "chunk_overlap": 30,
+      "chunks": 103,
+      "hits": 10,
+      "n": 12,
+      "hit_rate_at_3": 0.8333,
+      "latency_ms_median": 50.4,
+      "latency_ms_p95": 62.57,
+      "cases": [
+        {
+          "case_id": "dev-ans-01",
+          "question": "How many days do I have to ask for a refund?",
+          "acceptable": [
+            "HP-POL-02",
+            "HP-SOP-04"
+          ],
+          "retrieved": [
+            "HP-POL-02#4",
+            "HP-SOP-04#3",
+            "HP-POL-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 47.2
+        },
+        {
+          "case_id": "dev-ans-02",
+          "question": "What does a standard plumbing call-out cost?",
+          "acceptable": [
+            "HP-SVC-01",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-SVC-01#3",
+            "HP-SVC-02#2",
+            "HP-SVC-01#0"
+          ],
+          "hit": true,
+          "latency_ms": 44.41
+        },
+        {
+          "case_id": "dev-ans-03",
+          "question": "What are your opening hours on Saturdays?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-POL-01#2",
+            "HP-SVC-01#5",
+            "HP-POL-01#1"
+          ],
+          "hit": false,
+          "latency_ms": 37.46
+        },
+        {
+          "case_id": "dev-ans-04",
+          "question": "How much is the Pine Plus membership if I pay yearly?",
+          "acceptable": [
+            "HP-SVC-06"
+          ],
+          "retrieved": [
+            "HP-SVC-06#0",
+            "HP-SVC-06#1",
+            "HP-FAQ-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 60.47
+        },
+        {
+          "case_id": "dev-ans-05",
+          "question": "Is there a charge if I cancel less than 24 hours before my appointment?",
+          "acceptable": [
+            "HP-POL-01",
+            "HP-FAQ-01"
+          ],
+          "retrieved": [
+            "HP-POL-01#1",
+            "HP-POL-01#2",
+            "HP-FAQ-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 62.29
+        },
+        {
+          "case_id": "dev-ans-06",
+          "question": "How long is your workmanship guarantee?",
+          "acceptable": [
+            "HP-FAQ-03",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#0",
+            "HP-SVC-02#4",
+            "HP-FAQ-03#1"
+          ],
+          "hit": true,
+          "latency_ms": 50.11
+        },
+        {
+          "case_id": "dev-ans-07",
+          "question": "Can I pay the technician in cash?",
+          "acceptable": [
+            "HP-FAQ-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-02#1",
+            "HP-POL-01#3",
+            "HP-SOP-03#0"
+          ],
+          "hit": true,
+          "latency_ms": 49.09
+        },
+        {
+          "case_id": "dev-ans-08",
+          "question": "I think I smell gas in my kitchen. What should I do?",
+          "acceptable": [
+            "HP-FAQ-05",
+            "HP-SOP-02"
+          ],
+          "retrieved": [
+            "HP-SOP-02#1",
+            "HP-FAQ-05#2",
+            "HP-SOP-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 50.69
+        },
+        {
+          "case_id": "dev-ans-09",
+          "question": "What is the hourly rate for a deep clean?",
+          "acceptable": [
+            "HP-SVC-04"
+          ],
+          "retrieved": [
+            "HP-SVC-04#2",
+            "HP-FAQ-03#3",
+            "HP-SVC-04#3"
+          ],
+          "hit": true,
+          "latency_ms": 57.22
+        },
+        {
+          "case_id": "dev-ans-10",
+          "question": "Which towns do you cover?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#2",
+            "HP-FAQ-03#4",
+            "HP-SVC-01#3"
+          ],
+          "hit": false,
+          "latency_ms": 49.43
+        },
+        {
+          "case_id": "dev-ans-11",
+          "question": "How quickly will you reply if I make a complaint?",
+          "acceptable": [
+            "HP-POL-03"
+          ],
+          "retrieved": [
+            "HP-POL-03#2",
+            "HP-POL-03#1",
+            "HP-POL-03#3"
+          ],
+          "hit": true,
+          "latency_ms": 51.5
+        },
+        {
+          "case_id": "dev-ans-12",
+          "question": "How much does it cost to install an EV charger?",
+          "acceptable": [
+            "HP-SVC-03"
+          ],
+          "retrieved": [
+            "HP-SVC-03#1",
+            "HP-SVC-03#2",
+            "HP-SVC-02#3"
+          ],
+          "hit": true,
+          "latency_ms": 62.57
+        }
+      ]
+    },
+    "hashing-v1:200:30:dense": {
+      "embedder": "hashing-v1",
+      "strategy": "dense",
+      "chunk_size": 200,
+      "chunk_overlap": 30,
+      "chunks": 103,
+      "hits": 11,
+      "n": 12,
+      "hit_rate_at_3": 0.9167,
+      "latency_ms_median": 33.58,
+      "latency_ms_p95": 45.36,
+      "cases": [
+        {
+          "case_id": "dev-ans-01",
+          "question": "How many days do I have to ask for a refund?",
+          "acceptable": [
+            "HP-POL-02",
+            "HP-SOP-04"
+          ],
+          "retrieved": [
+            "HP-POL-02#4",
+            "HP-FAQ-01#1",
+            "HP-POL-02#0"
+          ],
+          "hit": true,
+          "latency_ms": 42.96
+        },
+        {
+          "case_id": "dev-ans-02",
+          "question": "What does a standard plumbing call-out cost?",
+          "acceptable": [
+            "HP-SVC-01",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-SVC-01#0",
+            "HP-SVC-01#3",
+            "HP-SVC-02#2"
+          ],
+          "hit": true,
+          "latency_ms": 45.36
+        },
+        {
+          "case_id": "dev-ans-03",
+          "question": "What are your opening hours on Saturdays?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-SVC-06#3",
+            "HP-FAQ-04#0",
+            "HP-SVC-05#0"
+          ],
+          "hit": true,
+          "latency_ms": 44.81
+        },
+        {
+          "case_id": "dev-ans-04",
+          "question": "How much is the Pine Plus membership if I pay yearly?",
+          "acceptable": [
+            "HP-SVC-06"
+          ],
+          "retrieved": [
+            "HP-SVC-06#0",
+            "HP-SVC-06#1",
+            "HP-FAQ-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 43.67
+        },
+        {
+          "case_id": "dev-ans-05",
+          "question": "Is there a charge if I cancel less than 24 hours before my appointment?",
+          "acceptable": [
+            "HP-POL-01",
+            "HP-FAQ-01"
+          ],
+          "retrieved": [
+            "HP-POL-01#1",
+            "HP-POL-01#2",
+            "HP-POL-01#4"
+          ],
+          "hit": true,
+          "latency_ms": 45.36
+        },
+        {
+          "case_id": "dev-ans-06",
+          "question": "How long is your workmanship guarantee?",
+          "acceptable": [
+            "HP-FAQ-03",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#0",
+            "HP-POL-05#0",
+            "HP-FAQ-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 44.95
+        },
+        {
+          "case_id": "dev-ans-07",
+          "question": "Can I pay the technician in cash?",
+          "acceptable": [
+            "HP-FAQ-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-02#1",
+            "HP-SOP-03#0",
+            "HP-POL-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 24.2
+        },
+        {
+          "case_id": "dev-ans-08",
+          "question": "I think I smell gas in my kitchen. What should I do?",
+          "acceptable": [
+            "HP-FAQ-05",
+            "HP-SOP-02"
+          ],
+          "retrieved": [
+            "HP-SOP-02#1",
+            "HP-FAQ-05#2",
+            "HP-FAQ-01#1"
+          ],
+          "hit": true,
+          "latency_ms": 22.35
+        },
+        {
+          "case_id": "dev-ans-09",
+          "question": "What is the hourly rate for a deep clean?",
+          "acceptable": [
+            "HP-SVC-04"
+          ],
+          "retrieved": [
+            "HP-SVC-04#2",
+            "HP-FAQ-04#0",
+            "HP-SOP-02#4"
+          ],
+          "hit": true,
+          "latency_ms": 20.15
+        },
+        {
+          "case_id": "dev-ans-10",
+          "question": "Which towns do you cover?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-01#1",
+            "HP-SOP-02#1",
+            "HP-SVC-01#2"
+          ],
+          "hit": false,
+          "latency_ms": 19.14
+        },
+        {
+          "case_id": "dev-ans-11",
+          "question": "How quickly will you reply if I make a complaint?",
+          "acceptable": [
+            "HP-POL-03"
+          ],
+          "retrieved": [
+            "HP-POL-03#2",
+            "HP-POL-03#3",
+            "HP-POL-03#1"
+          ],
+          "hit": true,
+          "latency_ms": 20.42
+        },
+        {
+          "case_id": "dev-ans-12",
+          "question": "How much does it cost to install an EV charger?",
+          "acceptable": [
+            "HP-SVC-03"
+          ],
+          "retrieved": [
+            "HP-SVC-03#1",
+            "HP-SVC-03#2",
+            "HP-POL-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 22.78
+        }
+      ]
+    },
+    "bge-small-en-v1.5:800:120:hybrid": {
+      "embedder": "bge-small-en-v1.5",
+      "strategy": "hybrid",
+      "chunk_size": 800,
+      "chunk_overlap": 120,
+      "chunks": 93,
+      "hits": 11,
+      "n": 12,
+      "hit_rate_at_3": 0.9167,
+      "latency_ms_median": 33.0,
+      "latency_ms_p95": 47.57,
+      "cases": [
+        {
+          "case_id": "dev-ans-01",
+          "question": "How many days do I have to ask for a refund?",
+          "acceptable": [
+            "HP-POL-02",
+            "HP-SOP-04"
+          ],
+          "retrieved": [
+            "HP-SOP-04#3",
+            "HP-POL-02#4",
+            "HP-POL-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 47.57
+        },
+        {
+          "case_id": "dev-ans-02",
+          "question": "What does a standard plumbing call-out cost?",
+          "acceptable": [
+            "HP-SVC-01",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-SVC-01#2",
+            "HP-SVC-06#2",
+            "HP-SVC-01#0"
+          ],
+          "hit": true,
+          "latency_ms": 34.92
+        },
+        {
+          "case_id": "dev-ans-03",
+          "question": "What are your opening hours on Saturdays?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-SVC-05#2",
+            "HP-SOP-01#3",
+            "HP-SVC-05#0"
+          ],
+          "hit": true,
+          "latency_ms": 40.04
+        },
+        {
+          "case_id": "dev-ans-04",
+          "question": "How much is the Pine Plus membership if I pay yearly?",
+          "acceptable": [
+            "HP-SVC-06"
+          ],
+          "retrieved": [
+            "HP-SVC-06#0",
+            "HP-SVC-06#1",
+            "HP-SVC-06#3"
+          ],
+          "hit": true,
+          "latency_ms": 32.07
+        },
+        {
+          "case_id": "dev-ans-05",
+          "question": "Is there a charge if I cancel less than 24 hours before my appointment?",
+          "acceptable": [
+            "HP-POL-01",
+            "HP-FAQ-01"
+          ],
+          "retrieved": [
+            "HP-POL-01#2",
+            "HP-POL-01#1",
+            "HP-FAQ-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 33.92
+        },
+        {
+          "case_id": "dev-ans-06",
+          "question": "How long is your workmanship guarantee?",
+          "acceptable": [
+            "HP-FAQ-03",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#0",
+            "HP-FAQ-03#1",
+            "HP-SVC-02#3"
+          ],
+          "hit": true,
+          "latency_ms": 31.75
+        },
+        {
+          "case_id": "dev-ans-07",
+          "question": "Can I pay the technician in cash?",
+          "acceptable": [
+            "HP-FAQ-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-02#1",
+            "HP-POL-01#3",
+            "HP-FAQ-05#3"
+          ],
+          "hit": true,
+          "latency_ms": 30.61
+        },
+        {
+          "case_id": "dev-ans-08",
+          "question": "I think I smell gas in my kitchen. What should I do?",
+          "acceptable": [
+            "HP-FAQ-05",
+            "HP-SOP-02"
+          ],
+          "retrieved": [
+            "HP-SOP-02#1",
+            "HP-FAQ-05#2",
+            "HP-SOP-03#2"
+          ],
+          "hit": true,
+          "latency_ms": 45.96
+        },
+        {
+          "case_id": "dev-ans-09",
+          "question": "What is the hourly rate for a deep clean?",
+          "acceptable": [
+            "HP-SVC-04"
+          ],
+          "retrieved": [
+            "HP-SVC-04#2",
+            "HP-SVC-04#1",
+            "HP-POL-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 36.32
+        },
+        {
+          "case_id": "dev-ans-10",
+          "question": "Which towns do you cover?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#2",
+            "HP-FAQ-04#3",
+            "HP-SOP-03#1"
+          ],
+          "hit": false,
+          "latency_ms": 30.37
+        },
+        {
+          "case_id": "dev-ans-11",
+          "question": "How quickly will you reply if I make a complaint?",
+          "acceptable": [
+            "HP-POL-03"
+          ],
+          "retrieved": [
+            "HP-POL-03#2",
+            "HP-POL-03#3",
+            "HP-POL-03#1"
+          ],
+          "hit": true,
+          "latency_ms": 31.65
+        },
+        {
+          "case_id": "dev-ans-12",
+          "question": "How much does it cost to install an EV charger?",
+          "acceptable": [
+            "HP-SVC-03"
+          ],
+          "retrieved": [
+            "HP-SVC-03#2",
+            "HP-SVC-03#1",
+            "HP-SVC-05#1"
+          ],
+          "hit": true,
+          "latency_ms": 32.02
+        }
+      ]
+    },
+    "bge-small-en-v1.5:800:120:dense": {
+      "embedder": "bge-small-en-v1.5",
+      "strategy": "dense",
+      "chunk_size": 800,
+      "chunk_overlap": 120,
+      "chunks": 93,
+      "hits": 12,
+      "n": 12,
+      "hit_rate_at_3": 1.0,
+      "latency_ms_median": 27.0,
+      "latency_ms_p95": 41.62,
+      "cases": [
+        {
+          "case_id": "dev-ans-01",
+          "question": "How many days do I have to ask for a refund?",
+          "acceptable": [
+            "HP-POL-02",
+            "HP-SOP-04"
+          ],
+          "retrieved": [
+            "HP-POL-02#1",
+            "HP-POL-02#4",
+            "HP-SOP-04#3"
+          ],
+          "hit": true,
+          "latency_ms": 27.64
+        },
+        {
+          "case_id": "dev-ans-02",
+          "question": "What does a standard plumbing call-out cost?",
+          "acceptable": [
+            "HP-SVC-01",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-SVC-01#2",
+            "HP-SVC-01#0",
+            "HP-SVC-06#2"
+          ],
+          "hit": true,
+          "latency_ms": 30.62
+        },
+        {
+          "case_id": "dev-ans-03",
+          "question": "What are your opening hours on Saturdays?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-SVC-05#2",
+            "HP-SVC-05#0",
+            "HP-FAQ-04#0"
+          ],
+          "hit": true,
+          "latency_ms": 39.66
+        },
+        {
+          "case_id": "dev-ans-04",
+          "question": "How much is the Pine Plus membership if I pay yearly?",
+          "acceptable": [
+            "HP-SVC-06"
+          ],
+          "retrieved": [
+            "HP-SVC-06#1",
+            "HP-SVC-06#0",
+            "HP-POL-05#2"
+          ],
+          "hit": true,
+          "latency_ms": 41.62
+        },
+        {
+          "case_id": "dev-ans-05",
+          "question": "Is there a charge if I cancel less than 24 hours before my appointment?",
+          "acceptable": [
+            "HP-POL-01",
+            "HP-FAQ-01"
+          ],
+          "retrieved": [
+            "HP-POL-01#1",
+            "HP-POL-01#2",
+            "HP-POL-01#0"
+          ],
+          "hit": true,
+          "latency_ms": 29.06
+        },
+        {
+          "case_id": "dev-ans-06",
+          "question": "How long is your workmanship guarantee?",
+          "acceptable": [
+            "HP-FAQ-03",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#0",
+            "HP-FAQ-03#1",
+            "HP-POL-05#3"
+          ],
+          "hit": true,
+          "latency_ms": 25.09
+        },
+        {
+          "case_id": "dev-ans-07",
+          "question": "Can I pay the technician in cash?",
+          "acceptable": [
+            "HP-FAQ-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-02#0",
+            "HP-FAQ-02#1",
+            "HP-SOP-03#0"
+          ],
+          "hit": true,
+          "latency_ms": 24.16
+        },
+        {
+          "case_id": "dev-ans-08",
+          "question": "I think I smell gas in my kitchen. What should I do?",
+          "acceptable": [
+            "HP-FAQ-05",
+            "HP-SOP-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-05#2",
+            "HP-SOP-02#1",
+            "HP-SOP-02#3"
+          ],
+          "hit": true,
+          "latency_ms": 26.27
+        },
+        {
+          "case_id": "dev-ans-09",
+          "question": "What is the hourly rate for a deep clean?",
+          "acceptable": [
+            "HP-SVC-04"
+          ],
+          "retrieved": [
+            "HP-SVC-04#2",
+            "HP-SVC-04#1",
+            "HP-POL-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 24.28
+        },
+        {
+          "case_id": "dev-ans-10",
+          "question": "Which towns do you cover?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-04#0",
+            "HP-SVC-05#0",
+            "HP-POL-05#0"
+          ],
+          "hit": true,
+          "latency_ms": 24.62
+        },
+        {
+          "case_id": "dev-ans-11",
+          "question": "How quickly will you reply if I make a complaint?",
+          "acceptable": [
+            "HP-POL-03"
+          ],
+          "retrieved": [
+            "HP-POL-03#3",
+            "HP-POL-03#2",
+            "HP-POL-04#3"
+          ],
+          "hit": true,
+          "latency_ms": 26.71
+        },
+        {
+          "case_id": "dev-ans-12",
+          "question": "How much does it cost to install an EV charger?",
+          "acceptable": [
+            "HP-SVC-03"
+          ],
+          "retrieved": [
+            "HP-SVC-03#2",
+            "HP-POL-01#3",
+            "HP-SVC-03#1"
+          ],
+          "hit": true,
+          "latency_ms": 27.28
+        }
+      ]
+    },
+    "bge-small-en-v1.5:200:30:hybrid": {
+      "embedder": "bge-small-en-v1.5",
+      "strategy": "hybrid",
+      "chunk_size": 200,
+      "chunk_overlap": 30,
+      "chunks": 103,
+      "hits": 11,
+      "n": 12,
+      "hit_rate_at_3": 0.9167,
+      "latency_ms_median": 32.99,
+      "latency_ms_p95": 39.85,
+      "cases": [
+        {
+          "case_id": "dev-ans-01",
+          "question": "How many days do I have to ask for a refund?",
+          "acceptable": [
+            "HP-POL-02",
+            "HP-SOP-04"
+          ],
+          "retrieved": [
+            "HP-POL-02#4",
+            "HP-POL-02#1",
+            "HP-SOP-04#3"
+          ],
+          "hit": true,
+          "latency_ms": 35.54
+        },
+        {
+          "case_id": "dev-ans-02",
+          "question": "What does a standard plumbing call-out cost?",
+          "acceptable": [
+            "HP-SVC-01",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-SVC-01#3",
+            "HP-SVC-06#2",
+            "HP-SVC-01#0"
+          ],
+          "hit": true,
+          "latency_ms": 32.24
+        },
+        {
+          "case_id": "dev-ans-03",
+          "question": "What are your opening hours on Saturdays?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-SVC-05#3",
+            "HP-SOP-01#5",
+            "HP-FAQ-01#1"
+          ],
+          "hit": true,
+          "latency_ms": 31.23
+        },
+        {
+          "case_id": "dev-ans-04",
+          "question": "How much is the Pine Plus membership if I pay yearly?",
+          "acceptable": [
+            "HP-SVC-06"
+          ],
+          "retrieved": [
+            "HP-SVC-06#1",
+            "HP-SVC-06#0",
+            "HP-SVC-06#5"
+          ],
+          "hit": true,
+          "latency_ms": 37.52
+        },
+        {
+          "case_id": "dev-ans-05",
+          "question": "Is there a charge if I cancel less than 24 hours before my appointment?",
+          "acceptable": [
+            "HP-POL-01",
+            "HP-FAQ-01"
+          ],
+          "retrieved": [
+            "HP-POL-01#2",
+            "HP-POL-01#1",
+            "HP-FAQ-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 38.31
+        },
+        {
+          "case_id": "dev-ans-06",
+          "question": "How long is your workmanship guarantee?",
+          "acceptable": [
+            "HP-FAQ-03",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#1",
+            "HP-FAQ-03#0",
+            "HP-SVC-02#4"
+          ],
+          "hit": true,
+          "latency_ms": 37.38
+        },
+        {
+          "case_id": "dev-ans-07",
+          "question": "Can I pay the technician in cash?",
+          "acceptable": [
+            "HP-FAQ-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-02#1",
+            "HP-SOP-03#0",
+            "HP-FAQ-05#3"
+          ],
+          "hit": true,
+          "latency_ms": 33.74
+        },
+        {
+          "case_id": "dev-ans-08",
+          "question": "I think I smell gas in my kitchen. What should I do?",
+          "acceptable": [
+            "HP-FAQ-05",
+            "HP-SOP-02"
+          ],
+          "retrieved": [
+            "HP-SOP-02#1",
+            "HP-FAQ-05#2",
+            "HP-SOP-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 30.98
+        },
+        {
+          "case_id": "dev-ans-09",
+          "question": "What is the hourly rate for a deep clean?",
+          "acceptable": [
+            "HP-SVC-04"
+          ],
+          "retrieved": [
+            "HP-SVC-04#2",
+            "HP-SVC-04#1",
+            "HP-POL-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 32.09
+        },
+        {
+          "case_id": "dev-ans-10",
+          "question": "Which towns do you cover?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#2",
+            "HP-FAQ-04#3",
+            "HP-SOP-03#1"
+          ],
+          "hit": false,
+          "latency_ms": 31.24
+        },
+        {
+          "case_id": "dev-ans-11",
+          "question": "How quickly will you reply if I make a complaint?",
+          "acceptable": [
+            "HP-POL-03"
+          ],
+          "retrieved": [
+            "HP-POL-03#2",
+            "HP-POL-03#1",
+            "HP-POL-03#0"
+          ],
+          "hit": true,
+          "latency_ms": 31.9
+        },
+        {
+          "case_id": "dev-ans-12",
+          "question": "How much does it cost to install an EV charger?",
+          "acceptable": [
+            "HP-SVC-03"
+          ],
+          "retrieved": [
+            "HP-SVC-03#2",
+            "HP-SVC-03#1",
+            "HP-SVC-02#1"
+          ],
+          "hit": true,
+          "latency_ms": 39.85
+        }
+      ]
+    },
+    "bge-small-en-v1.5:200:30:dense": {
+      "embedder": "bge-small-en-v1.5",
+      "strategy": "dense",
+      "chunk_size": 200,
+      "chunk_overlap": 30,
+      "chunks": 103,
+      "hits": 12,
+      "n": 12,
+      "hit_rate_at_3": 1.0,
+      "latency_ms_median": 32.3,
+      "latency_ms_p95": 57.21,
+      "cases": [
+        {
+          "case_id": "dev-ans-01",
+          "question": "How many days do I have to ask for a refund?",
+          "acceptable": [
+            "HP-POL-02",
+            "HP-SOP-04"
+          ],
+          "retrieved": [
+            "HP-POL-02#1",
+            "HP-POL-02#4",
+            "HP-SOP-04#3"
+          ],
+          "hit": true,
+          "latency_ms": 40.03
+        },
+        {
+          "case_id": "dev-ans-02",
+          "question": "What does a standard plumbing call-out cost?",
+          "acceptable": [
+            "HP-SVC-01",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-SVC-01#3",
+            "HP-SVC-01#0",
+            "HP-SVC-06#2"
+          ],
+          "hit": true,
+          "latency_ms": 52.93
+        },
+        {
+          "case_id": "dev-ans-03",
+          "question": "What are your opening hours on Saturdays?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-SVC-05#3",
+            "HP-SVC-05#0",
+            "HP-SVC-06#3"
+          ],
+          "hit": true,
+          "latency_ms": 32.94
+        },
+        {
+          "case_id": "dev-ans-04",
+          "question": "How much is the Pine Plus membership if I pay yearly?",
+          "acceptable": [
+            "HP-SVC-06"
+          ],
+          "retrieved": [
+            "HP-SVC-06#1",
+            "HP-SVC-06#0",
+            "HP-POL-05#2"
+          ],
+          "hit": true,
+          "latency_ms": 31.51
+        },
+        {
+          "case_id": "dev-ans-05",
+          "question": "Is there a charge if I cancel less than 24 hours before my appointment?",
+          "acceptable": [
+            "HP-POL-01",
+            "HP-FAQ-01"
+          ],
+          "retrieved": [
+            "HP-POL-01#1",
+            "HP-POL-01#2",
+            "HP-POL-01#0"
+          ],
+          "hit": true,
+          "latency_ms": 33.57
+        },
+        {
+          "case_id": "dev-ans-06",
+          "question": "How long is your workmanship guarantee?",
+          "acceptable": [
+            "HP-FAQ-03",
+            "HP-SVC-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-03#0",
+            "HP-FAQ-03#1",
+            "HP-SVC-02#4"
+          ],
+          "hit": true,
+          "latency_ms": 37.08
+        },
+        {
+          "case_id": "dev-ans-07",
+          "question": "Can I pay the technician in cash?",
+          "acceptable": [
+            "HP-FAQ-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-02#0",
+            "HP-FAQ-02#1",
+            "HP-SOP-03#0"
+          ],
+          "hit": true,
+          "latency_ms": 30.59
+        },
+        {
+          "case_id": "dev-ans-08",
+          "question": "I think I smell gas in my kitchen. What should I do?",
+          "acceptable": [
+            "HP-FAQ-05",
+            "HP-SOP-02"
+          ],
+          "retrieved": [
+            "HP-FAQ-05#2",
+            "HP-SOP-02#1",
+            "HP-SOP-02#3"
+          ],
+          "hit": true,
+          "latency_ms": 28.09
+        },
+        {
+          "case_id": "dev-ans-09",
+          "question": "What is the hourly rate for a deep clean?",
+          "acceptable": [
+            "HP-SVC-04"
+          ],
+          "retrieved": [
+            "HP-SVC-04#2",
+            "HP-SVC-04#1",
+            "HP-POL-01#2"
+          ],
+          "hit": true,
+          "latency_ms": 25.36
+        },
+        {
+          "case_id": "dev-ans-10",
+          "question": "Which towns do you cover?",
+          "acceptable": [
+            "HP-SVC-05"
+          ],
+          "retrieved": [
+            "HP-FAQ-04#0",
+            "HP-SVC-05#0",
+            "HP-POL-05#0"
+          ],
+          "hit": true,
+          "latency_ms": 25.16
+        },
+        {
+          "case_id": "dev-ans-11",
+          "question": "How quickly will you reply if I make a complaint?",
+          "acceptable": [
+            "HP-POL-03"
+          ],
+          "retrieved": [
+            "HP-POL-03#2",
+            "HP-SOP-01#4",
+            "HP-SOP-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 31.66
+        },
+        {
+          "case_id": "dev-ans-12",
+          "question": "How much does it cost to install an EV charger?",
+          "acceptable": [
+            "HP-SVC-03"
+          ],
+          "retrieved": [
+            "HP-SVC-03#2",
+            "HP-SVC-01#4",
+            "HP-POL-01#3"
+          ],
+          "hit": true,
+          "latency_ms": 57.21
+        }
+      ]
+    }
+  }
+}

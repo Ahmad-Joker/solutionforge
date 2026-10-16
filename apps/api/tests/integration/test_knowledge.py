@@ -28,7 +28,7 @@ FIXTURE = json.loads((Path(__file__).parents[1] / "fixtures" / "support_kb.json"
 
 
 class FailingEmbedder:
-    name = "failing"
+    name = "hashing-v1"  # the KB's embedder, simulated as unavailable
     dim = 1024
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
