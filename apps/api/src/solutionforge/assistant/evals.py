@@ -291,7 +291,8 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     latencies = [float(r["latency_ms"]) for r in ran]
     costs = [r["cost_micro_usd"] for r in ran]
     known = [c for c in costs if c is not None]
-    total_cost = sum(known) if len(known) == len(costs) else None
+    # Unknown (None) when nothing ran or any run's cost is unknown — never reported as 0.
+    total_cost = sum(known) if costs and len(known) == len(costs) else None
     return {
         "cases": len(rows),
         "ran": len(ran),

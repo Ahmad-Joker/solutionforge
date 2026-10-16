@@ -206,3 +206,20 @@ def test_safe_argument_summaries() -> None:
 def test_draft_hash_binds_content() -> None:
     assert draft_hash("a", "b") == draft_hash("a", "b")
     assert draft_hash("a", "b") != draft_hash("a", "b ")
+
+
+def test_cost_is_unknown_not_zero_when_nothing_ran() -> None:
+    from solutionforge.assistant.evals import summarize
+
+    rows = [
+        {
+            "verdict": "NOT RUN",
+            "category": "answerable",
+            "dimensions": {},
+            "latency_ms": None,
+            "cost_micro_usd": None,
+            "run_status": None,
+        }
+    ]
+    s = summarize(rows)
+    assert s["cost"]["total_micro_usd"] is None and s["not_run"] == 1 and s["pass_rate"] is None

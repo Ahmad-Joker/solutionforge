@@ -167,6 +167,7 @@ class Settings(BaseSettings):
         "metrics_token",
         "database_password",
         "otel_exporter_otlp_endpoint",
+        "embedding_cache_dir",
         mode="before",
     )
     @classmethod
