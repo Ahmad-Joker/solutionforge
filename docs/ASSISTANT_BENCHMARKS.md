@@ -127,10 +127,19 @@ Measured to decide whether the embedder fits Render's free instance (512 MB). Sc
 - Memory: the cgroup v2 `memory.peak` and `memory.current` counters. These include page
   cache, so they are an upper bound on what the process itself needs.
 
-| Image | Embedder | After boot | Peak | After workload | OOM-killed | Smoke checks |
-|---|---|---|---|---|---|---|
-| base (413 MB image) | hashing-v1 | 88.1 MiB | 153.2 MiB | 90.8 MiB | no | 12/12 |
-| semantic (814 MB image, model baked in) | bge-small-en-v1.5 | 86.6 MiB | **317.6 MiB** | 304.3 MiB | no | 12/12 |
+Repeated runs, same workload (now 14 checks, including the concurrent-approval race):
+
+| Image | Embedder | Runs | After boot | Peak (`memory.peak`) | Resident after workload (`anon`) | OOM-killed | Smoke checks |
+|---|---|---|---|---|---|---|---|
+| base (413 MB image) | hashing-v1 | 5 | 86.8–87.9 MiB (one run 155.7) | 152.8–153.2 MiB (one run 221.3) | 87.1 MiB | never | 14/14 every run |
+| semantic (814 MB image, model baked in) | bge-small-en-v1.5 | 6 | 86.7–88.1 MiB (one run 128.0) | 317.2–318.0 MiB in 5 runs, **474.9 MiB in 1 run** | 298.1–298.2 MiB | never | 14/14 every run |
+
+- **Baseline (lexical):** ~153 MiB peak, ~87 MiB resident.
+- **Semantic:** the model adds ~210 MiB of resident memory that stays allocated once used.
+  It is process memory, not reclaimable page cache: page cache was ~0 MiB in the runs
+  where it was split out.
+- **Outlier:** one semantic run peaked at 475 MiB, within 37 MiB of the limit. It was the
+  first run after a rebuild; its cause was not isolated.
 
 **Finding: a container bug, fixed.** The first semantic run failed: every ingestion
 dead-lettered with `Permission denied`. The non-root `app` user couldn't write the
@@ -140,18 +149,18 @@ Hugging Face download cache.
 - The image now bakes the model in at build time (`/opt/models`) and sets
   `HF_HOME=/tmp/huggingface`, so nothing is downloaded at runtime.
 
-**Recommendation.**
+**Recommendation: do not enable the semantic embedder on Render's free 512 MB instance.**
 
-- It fits: peak 318 of 512 MiB, about 194 MiB of headroom, for this workload.
-- The model stays loaded once used (~215 MiB above the base).
+- **Too tight.** It usually fits (peak ~318 MiB), but the worst observed peak (475 MiB)
+  leaves under 40 MiB.
 - **Not measured:** concurrent requests, larger corpora, and Render's own accounting.
-  Treat the headroom as moderate, not large.
-- **Turning it on for Render** needs three things:
-  1. an image built with `API_EXTRAS="[semantic]"`. The blueprint currently builds
-     without it, and how to pass build arguments through Render was not verified;
+- **Adversarial regression.** Dense retrieval also has the documented regression (§2, case dev-inj-04),
+  which is not yet mitigated.
+- **Viable on a larger instance (≥1 GB).** That needs:
+  1. an image built with `API_EXTRAS="[semantic]"`;
   2. `SF_SEMANTIC_EMBEDDER_ENABLED=true`;
-  3. a new knowledge base. Existing ones keep the embedder they were created with.
-- Until then the live demo stays lexical.
+  3. a new knowledge base, because existing ones keep their embedder.
+- **Render build arguments:** how to pass them through Render's blueprint was not verified.
 
 ## 3. Agent-behaviour evals
 

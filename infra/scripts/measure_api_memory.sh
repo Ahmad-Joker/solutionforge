@@ -7,7 +7,9 @@
 #   PYTHON=python infra/scripts/measure_api_memory.sh sf-api:base false
 #   PYTHON=python infra/scripts/measure_api_memory.sh sf-api:semantic true
 #
-# Workload: apps/api/scripts/assistant_smoke.py (demo corpus ingestion + 7 assistant runs).
+# Workload: apps/api/scripts/assistant_smoke.py (demo corpus ingestion + assistant runs);
+# extra smoke arguments via SMOKE_ARGS. Exits non-zero if the smoke test fails or the
+# container is OOM-killed or stops; containers and network are always removed.
 # Prints idle-after-boot, peak during the workload, final usage, and whether it was OOM-killed.
 set -euo pipefail
 IMAGE=${1:?image}; SEMANTIC=${2:-false}; LIMIT=${LIMIT:-512m}; PORT=${PORT:-8200}
@@ -37,18 +39,39 @@ sleep 5
 cg() { MSYS_NO_PATHCONV=1 docker exec "$API" cat "/sys/fs/cgroup/$1" | awk '{printf "%.1f", $1/1048576}'; }
 idle=$(cg memory.current)
 idle_peak=$(cg memory.peak)
-set +e
-"$PYTHON" apps/api/scripts/assistant_smoke.py "http://127.0.0.1:$PORT" --timeout 240 > /tmp/sf-mem-smoke.log 2>&1
+set +e  # from here on, report everything; the exit status is decided at the end
+# shellcheck disable=SC2086  # SMOKE_ARGS is intentionally word-split (e.g. "--model x")
+"$PYTHON" apps/api/scripts/assistant_smoke.py "http://127.0.0.1:$PORT" --timeout 240 ${SMOKE_ARGS:-} > /tmp/sf-mem-smoke.log 2>&1
 SMOKE=$?
-set -e
 sleep 3
-final=$(cg memory.current); peak=$(cg memory.peak)
+running=$(docker inspect -f '{{.State.Running}}' "$API" 2>/dev/null)
+oom=$(docker inspect -f '{{.State.OOMKilled}}' "$API" 2>/dev/null)
+if [ "$running" = true ]; then
+  final=$(cg memory.current); peak=$(cg memory.peak)
+  # memory.current/peak include reclaimable page cache; "anon" is process memory proper.
+  stat() { MSYS_NO_PATHCONV=1 docker exec "$API" awk -v k="$1" '$1==k {printf "%.1f", $2/1048576}' /sys/fs/cgroup/memory.stat; }
+  anon=$(stat anon); file=$(stat file)
+else final="n/a (container stopped)"; peak="n/a"; anon="n/a"; file="n/a"; fi
 echo "image=$IMAGE semantic=$SEMANTIC limit=$LIMIT"
 echo "after_boot_MiB=$idle boot_peak_MiB=$idle_peak overall_peak_MiB=$peak final_MiB=$final"
-echo "oom_killed=$(docker inspect -f '{{.State.OOMKilled}}' "$API") restarts=$(docker inspect -f '{{.RestartCount}}' "$API")"
-echo "smoke_exit=$SMOKE ($(tail -1 /tmp/sf-mem-smoke.log))"
-grep -E "embedder|run " /tmp/sf-mem-smoke.log | head -9
-if [ "$SMOKE" != 0 ]; then
-  echo "--- API errors ---"
-  docker logs "$API" 2>&1 | grep -E "assistant_run_failed" | tail -1 | "$PYTHON" -c "import json,sys; print(json.loads(sys.stdin.read())[\"exception\"][-1500:])"
+echo "final_anon_MiB=$anon final_page_cache_MiB=$file"
+echo "oom_killed=${oom:-unknown} running=${running:-unknown} restarts=$(docker inspect -f '{{.RestartCount}}' "$API" 2>/dev/null)"
+echo "smoke_exit=$SMOKE ($(tail -1 /tmp/sf-mem-smoke.log 2>/dev/null))"
+grep -E "embedder|run |FAIL" /tmp/sf-mem-smoke.log | head -12
+if [ "$SMOKE" != 0 ] || [ "$oom" = true ] || [ "$running" != true ]; then
+  echo "--- smoke log (last 15 lines) ---"; tail -15 /tmp/sf-mem-smoke.log
+  echo "--- API warnings/errors (last 10) ---"
+  docker logs "$API" 2>&1 | grep -E '"level": "(warning|error|critical)"|Traceback|Error' | tail -10 | cut -c1-600
+  # Most recent assistant traceback, if any (JSON log line with an "exception" field).
+  docker logs "$API" 2>&1 | grep -E '"exception"' | tail -1 | "$PYTHON" -c "
+import json, sys
+line = sys.stdin.read().strip()
+try:
+    print('--- last traceback ---'); print(json.loads(line)['exception'][-1500:])
+except Exception:
+    pass"
 fi
+# Fail the measurement unless the workload passed and the container survived.
+if [ "$SMOKE" != 0 ]; then exit "$SMOKE"; fi
+if [ "$oom" = true ] || [ "$running" != true ]; then exit 3; fi
+exit 0

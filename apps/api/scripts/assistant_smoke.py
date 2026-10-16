@@ -10,7 +10,8 @@ delete"), loads the demo corpus, then verifies:
   3. a ticket lookup through get_ticket_status;
   4. a ticket draft that does NOT create a ticket by itself;
   5. explicit approval creates exactly one ticket;
-  6. duplicate approval (repeat + concurrent) never creates a second ticket;
+  6. a repeated approval creates nothing more, and 5 concurrent first approvals of a
+     fresh pending draft create exactly one ticket;
   7. an edited draft can't be approved with the stale hash;
   8. an unsupported question abstains.
 
@@ -200,19 +201,36 @@ async def main(argv: list[str]) -> int:
                 str(ref),
             )
 
-            # 6. Duplicate approval: repeat and concurrent
+            # 6. Repeated approval of an already-approved draft
             again = (await call("POST", url, {"content_hash": draft["content_hash"]})).json()
-            burst = await asyncio.gather(
-                *[call("POST", url, {"content_hash": draft["content_hash"]}) for _ in range(3)]
-            )
-            refs = {again["draft"]["ticket_ref"], *(b.json()["draft"]["ticket_ref"] for b in burst)}
             after = await ticket_refs()
             check(
-                "duplicate approval creates nothing",
+                "repeated approval creates nothing",
                 again["ticket_created"] is False
-                and refs == {ref}
+                and again["draft"]["ticket_ref"] == ref
                 and len(after) == len(before) + 1,
                 f"tickets {len(before)} -> {len(after)}",
+            )
+
+            # 6b. Race: concurrent FIRST approvals of a fresh, still-pending draft
+            run = await ask("Please open a ticket: SMOKE TEST, draft for the approval race check.")
+            race = run["drafts"][0]
+            check("race draft is pending", race["status"] == "pending")
+            race_url = f"/orgs/{org}/assistant/drafts/{race['id']}/approve"
+            race_before = await ticket_refs()
+            responses = await asyncio.gather(
+                *[call("POST", race_url, {"content_hash": race["content_hash"]}) for _ in range(5)]
+            )
+            bodies = [r.json() for r in responses]
+            created = sum(b["ticket_created"] for b in bodies)
+            race_refs = {b["draft"]["ticket_ref"] for b in bodies}
+            race_after = await ticket_refs()
+            new_refs = [t for t in race_after if t not in race_before]
+            check(
+                "concurrent approvals create exactly one ticket",
+                created == 1 and len(race_refs) == 1 and new_refs == list(race_refs),
+                f"5 concurrent approvals: {created} created, refs {sorted(race_refs)}, "
+                f"new tickets {new_refs}",
             )
 
             # 7. Stale review hash
