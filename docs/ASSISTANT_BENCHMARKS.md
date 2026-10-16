@@ -7,7 +7,7 @@ sections by kind, never mixed in one table:
 |---|---|
 | **MEASURED** | A real component run (embedders, retrieval) on this machine |
 | **FIXTURE** | The rule-based `fixture:policy-v1` in place of a model. Checks the harness, not model quality |
-| **BLOCKED** | Needs an Anthropic API key, which was not available. Nothing was substituted |
+| **NOT RUN** | Needs paid Claude API calls, which are outside the project's $0 budget. Nothing was substituted |
 
 Run date: 2026-10-16. Machine: Windows 11 laptop, Python 3.13. Database: a throwaway SQLite
 file, so dense search is brute force in Python, not pgvector. Latencies are therefore not
@@ -107,8 +107,8 @@ when it is enabled.
 - **Regression: dev-inj-04.** With dense retrieval, the injected "Warranty clarification"
   page ranks first, and the fixture cites it instead of the real warranty FAQ.
 
-So the change improves retrieval but makes one adversarial document easier to reach. That
-argues for the planned live injection evals before adopting it. The code default stays
+So the change improves retrieval but makes one adversarial document easier to reach. Live injection
+evals would be needed before adopting it; they are outside the $0 budget. The code default stays
 lexical + hybrid (no download), and the deployed demo keeps the lexical embedder.
 
 ## 2a. Investigation: the adversarial retrieval regression (MEASURED, no model calls)
@@ -167,8 +167,8 @@ expose a model to more injected text?
   - it measurably increases injected-text exposure;
   - live injection evals haven't run;
   - it doesn't fit comfortably on Render's free instance (§2b).
-- **Re-evaluate after the live dev injection cases** (5/5 is a hard target), comparing
-  lexical hybrid and semantic dense with the same model.
+- **Live injection evals were not run** (outside the $0 budget), so whether a model
+  resists the extra injected passages is unknown.
 - **Consider separately** stripping hidden HTML comments at ingestion (small, general) and
   trust metadata per source.
 
@@ -243,39 +243,37 @@ Hugging Face download cache.
 
 **What they don't show:** anything about how well a language model answers.
 
-### LIVE runs: BLOCKED
+### LIVE runs: NOT RUN
+
+The project budget is **$0**, so no paid Claude API calls were made. None are planned. The
+earlier staged paid plan is cancelled.
 
 | Model | Pass | Fail | Not run | Reason | Artifact |
 |---|---|---|---|---|---|
-| anthropic:claude-haiku-5-5 | — | — | 30 | BLOCKED: no API key | [report](../evals/assistant/results/1016-152253-dev/report.md) |
-| anthropic:claude-sonnet-5-5 | — | — | 30 | BLOCKED: no API key | same |
-| anthropic:claude-haiku-5-5 (smoke, 3 cases) | — | — | 3 | BLOCKED: no API key, no spend cap approved | [report](../evals/assistant/results/1016-173527-dev/report.md) |
+| anthropic:claude-haiku-5-5 | — | — | 30 | NOT RUN: paid model calls are outside the project's $0 budget | [report](../evals/assistant/results/1016-152253-dev/report.md) |
+| anthropic:claude-sonnet-5-5 | — | — | 30 | NOT RUN: paid model calls are outside the project's $0 budget | same |
+| anthropic:claude-haiku-5-5 (smoke, 3 cases) | — | — | 3 | NOT RUN: paid model calls are outside the project's $0 budget | [report](../evals/assistant/results/1016-173527-dev/report.md) |
 
-These tables are empty because nothing ran, and fixture numbers are never copied into them.
+**Notes on these runs.**
 
-**Planned procedure once a key and budget are approved:**
+- **Report labels.** The linked reports were produced before the budget decision, and their
+  headers say "BLOCKED" (no key configured). In both cases, nothing ran.
+- **No substitution.** Fixture numbers are never copied into these tables.
+- **Not measured, so unknown:** live-model pass rates, tool-selection accuracy,
+  injection resistance, latency, and cost per task.
+- **If budget ever becomes available,** the runner reports per model: pass rate,
+  per-dimension scores, median and p95 latency with n, average cost per attempt, cost per
+  successful case, failed runs and limit-reached runs. Hard request and spend caps are
+  mandatory, and the targets were fixed in advance in `evals/assistant/README.md`.
 
-1. **Smoke run:** 3 cases on Haiku 5.5, capped at 15 requests and $0.05.
-2. **Comparison:** Haiku 5.5 vs Sonnet 5.5 on all 30 dev cases, capped at 400 requests and
-   $2.00.
-3. **ReAct experiment** (§4): one model, `--tool-mode fixed` vs `model`.
-4. **Held-out run:** one run of the chosen configuration, logged in `HOLDOUT_LOG.md`.
+**Cost accounting (implemented, unexercised by live calls).** Estimates come from list
+prices (source and date in `pricing.py`), not invoices. Failed attempts' tokens are
+included. Cost per success is total spend divided by passing cases, so failures are paid
+for. Unknown cost is shown as "unknown", never as 0. This is covered by unit tests and a
+mocked-SDK integration test only.
 
-**Reported per model:**
-
-- pass rate and per-dimension scores;
-- median and p95 latency, with n;
-- average cost per attempt and cost per successful case;
-- failed runs and limit-reached runs.
-
-The targets were fixed in advance in `evals/assistant/README.md`.
-
-**Cost accounting.** Estimates come from list prices (source and date in `pricing.py`), not
-invoices. Failed attempts' tokens are included. Cost per success is total spend divided
-by passing cases, so failures are paid for. Unknown cost is shown as "unknown", never as 0.
-
-## 4. ReAct-style experiment: BLOCKED
+## 4. ReAct-style experiment: NOT RUN
 
 Design and the paper note: [REACT_NOTE.md](REACT_NOTE.md). The harness for both arms is
 built and checked with the fixture (the fixed-workflow row above). The live comparison
-needs an API key.
+needs paid model calls, which are outside the project's $0 budget.

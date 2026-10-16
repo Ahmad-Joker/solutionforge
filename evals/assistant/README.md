@@ -95,28 +95,11 @@ python scripts/assistant_eval.py --dataset holdout --models <model> --confirm-ho
 
 When the caps are reached, the remaining cases are recorded as NOT RUN.
 
-## Staged live plan (awaiting budget approval)
+## Live evaluation: NOT RUN (project budget $0)
 
-Each stage runs only after the previous one passes, or once its failures are diagnosed.
-The caps are hard limits enforced by the runner. The per-run server cap
-(`SF_ASSISTANT_RUN_BUDGET_USD`, default $0.05) applies as well.
+No paid Claude calls are made in this project; the earlier staged paid plan is cancelled.
 
-| Stage | Command (from `apps/api`) | Request cap | Spend cap | Rough expected spend* |
-|---|---|---|---|---|
-| 0. Key check (free) | `python scripts/check_anthropic_key.py anthropic:claude-haiku-5-5 anthropic:claude-sonnet-5-5` | Models API only | $0 | $0 |
-| 1. Smoke: Haiku 5.5, 3 dev cases | `python scripts/assistant_eval.py --dataset dev --models anthropic:claude-haiku-5-5 --limit 3 --max-requests 15 --max-spend-usd 0.05 --label "live smoke"` | 15 | $0.05 | < $0.01 |
-| 2. Haiku 5.5, all 30 dev cases | `... --models anthropic:claude-haiku-5-5 --max-requests 200 --max-spend-usd 0.50 --label "dev haiku"` | 200 | $0.50 | ~$0.03 |
-| 3. Sonnet 5.5, all 30 dev cases (comparison) | `... --models anthropic:claude-sonnet-5-5 --max-requests 200 --max-spend-usd 1.50 --label "dev sonnet"` | 200 | $1.50 | ~$0.55 |
-| 4. ReAct baseline arm (fixed workflow, Haiku) | `... --models anthropic:claude-haiku-5-5 --tool-mode fixed --max-requests 60 --max-spend-usd 0.25 --label "react fixed"` | 60 | $0.25 | ~$0.02 |
-| 5. Injection cases with semantic dense retrieval (Haiku) | `... --cases dev-inj-01,dev-inj-02,dev-inj-03,dev-inj-04,dev-inj-05 --embedder bge-small-en-v1.5 --strategy dense --max-requests 40 --max-spend-usd 0.10 --label "inj semantic"` | 40 | $0.10 | < $0.01 |
-| 6. Held-out, chosen config, once | `python scripts/assistant_eval.py --dataset holdout --confirm-holdout --models <chosen> --max-requests 60 --max-spend-usd 0.25` | 60 | $0.25 | ~$0.01–0.20 |
-| **Total ceiling** | | | **$2.65** | |
-
-\* **How the expected spend was estimated.** It is a rough **pre-run estimate**, not a
-measurement.
-
-- **Inputs:** the list prices in `pricing.py`, and about 3 model calls per case at ~2,500
-  input + ~300 output tokens each. That covers the system prompt, the three tool schemas,
-  the tool-use system prompt and the retrieved passages.
-- **Why the caps are higher:** to leave room for retries and longer answers.
-- **What counts:** actual spend is whatever the run's `summary.json` records.
+The live commands above stay as documentation of how the runner works. Every live result
+in this repository is recorded as NOT RUN, and fixture results are never reported as model
+results. `scripts/check_anthropic_key.py` makes no token-generating calls, but it is not
+needed under this budget.

@@ -166,8 +166,9 @@ render.yaml          Free-tier deployment blueprint
 - **Hardware.** Performance numbers come from a laptop shared with the load generator.
 - **The AWS deployment is designed, not applied.** The live demo runs on free hosting
   (Render + Neon), and the smoke test passes against it.
-- **The assistant has no live model results yet.** The eval and model-comparison runs need
-  an Anthropic API key, so they are recorded as BLOCKED. See
+- **The assistant has no live model results.** The project budget is $0, so no paid
+  Claude calls were made: live evals, the model comparison and the ReAct experiment are
+  NOT RUN. The deployed demo uses the labelled rule-based fixture policy. See
   [docs/ASSISTANT_BENCHMARKS.md](docs/ASSISTANT_BENCHMARKS.md).
 - **Not built yet:** PostgreSQL row-level security (deferred; see ADR-0011), NER-based PII
   detection, a built-in scheduler.

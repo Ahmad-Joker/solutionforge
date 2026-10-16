@@ -8,7 +8,7 @@
   Check this under **Knowledge**.
 - The model selector shows the model you'll use. With no API key that's
   `fixture:policy-v1`, and you should **say so out loud**: it is a rule-based test policy,
-  not a language model. With a key, use `anthropic:claude-haiku-5-5`.
+  not a language model. (This project's budget is $0, so the fixture policy is the only model offered.)
 
 | Time | Do | Say |
 |---|---|---|
@@ -22,6 +22,6 @@
 **If asked about results:**
 
 - **Live model scores have not been run.** No API key was available. The eval harness
-  reports those runs as BLOCKED rather than inventing numbers.
+  reports those runs as NOT RUN (the project budget is $0) rather than inventing numbers.
 - **What was measured:** retrieval (hit rate @3 of 11/12 → 12/12 with semantic dense
   retrieval) and the harness, using the fixture.

@@ -99,19 +99,12 @@ fixed, code-chosen tool sequence?
 - the effect of reasoning traces (we have none);
 - statistical significance. 30 cases can show large differences only.
 
-**Status: BLOCKED.**
+**Status: NOT RUN.** The live comparison needs paid model calls, which are outside the
+project's $0 budget.
 
-- **Live runs:** need an Anthropic API key, which was not available in this environment.
 - **Harness:** both arms are implemented and were checked with the rule-based fixture
   policy ([fixed-arm fixture run](../evals/assistant/results/1016-152137-dev-fw/report.md):
   11/30; model-mode fixture: 16/30).
 - **Those numbers are not evidence either way.** The fixture is not a model.
-
-Command once a key is approved:
-
-```bash
-for mode in fixed model; do
-  python scripts/assistant_eval.py --dataset dev --models anthropic:claude-haiku-5-5 \
-    --tool-mode $mode --max-requests 200 --max-spend-usd 1.00 --label "react-$mode"
-done
-```
+- **No conclusion** about fixed versus model-selected tool use is claimed for this
+  application.

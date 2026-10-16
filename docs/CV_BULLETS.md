@@ -1,42 +1,57 @@
 # CV bullets (evidence-based)
 
-Each bullet states only what the repository shows, with a pointer to the evidence. Bullets
-about live model quality are deliberately absent until the live evals have run.
+Three separate groups. Don't merge them in a CV line. In particular, don't imply that a
+live model was evaluated: the project budget was $0 and no paid Claude calls were made.
 
-- **Built a tool-using support assistant on the Anthropic Python SDK.**
-  - Native `tools` / `tool_use` / `tool_result` loop with three allowlisted tools and
-    Pydantic-validated arguments.
-  - Turn, tool-call, deadline and per-run spend limits, and bounded retries of transient
-    errors.
-  - Evidence: `apps/api/src/solutionforge/assistant/`; 26 integration tests and a
-    Playwright E2E test.
-- **Designed human-in-the-loop approval for model-initiated writes.**
-  - The model can only draft tickets.
-  - Approval needs a staff permission and is bound to a SHA-256 hash of the reviewed
-    content.
-  - Concurrent or repeated approvals create exactly one ticket. Tested under four
-    concurrent requests.
-- **Added semantic retrieval with measured gains.**
-  - bge-small-en-v1.5 embeddings via ONNX, stored in pgvector, with a per-knowledge-base
-    embedder registry.
-  - Compared 2 chunkings × 2 embedders × 2 strategies on labelled questions. Dense
-    semantic retrieval raised hit rate @3 from 11/12 to 12/12.
-  - Also reported the adversarial-document regression it introduced.
-- **Wrote an agent-behaviour eval suite: 30 dev and 10 held-out cases.**
-  - Covers answerable, ticket and tool, unanswerable, and prompt-injection cases.
-  - Scores 7 dimensions separately: retrieval, tool selection, argument validity, task
-    completion, citation validity, abstention and approval enforcement.
-  - Records PASS, FAIL and NOT RUN separately, under spend and request caps.
-  - Targets were fixed before any run.
-- **Instrumented LLM cost and latency per run.**
-  - Token accounting across all attempts, including the 5-minute and 1-hour cache-write
-    categories and a long-context price tier.
-  - List-price estimates with source and date. Unknown cost is never reported as zero.
-  - Retrieval and tool latency are recorded separately.
-- **Read and applied the ReAct paper (Yao et al., ICLR 2023).**
-  - Wrote a critical note.
-  - Built a fixed-workflow vs model-selected-tools comparison harness for this application.
-    The live run is pending an API key.
+## Implemented and tested (software)
 
-Python · FastAPI · SQLAlchemy · PostgreSQL/pgvector · Anthropic SDK · fastembed/ONNX ·
-Next.js/TypeScript · pytest · Playwright
+- **Built a tool-calling support assistant (Python/FastAPI, Next.js) on the Anthropic
+  Python SDK's native tool-use interface.**
+  - Three allowlisted tools; arguments validated in code; permissions checked against the
+    user, not the model.
+  - Limits on turns, tool calls, time and per-run spend, plus bounded retries.
+  - Tested through the real SDK over a mocked HTTP transport, with 26 integration tests and
+    a Playwright browser test. Deployed to Render with a labelled rule-based test policy in
+    place of a model.
+- **Designed human approval for AI-drafted support tickets.**
+  - The model can only create drafts.
+  - Approval requires a staff permission and is bound to a SHA-256 hash of the reviewed
+    text.
+  - A row lock and an idempotency key prevent duplicates. Verified on PostgreSQL: 5
+    concurrent approvals create exactly one ticket.
+- **Wrote an agent-behaviour eval harness:** 30 dev and 10 held-out cases, 7 scoring
+  dimensions. It reports PASS, FAIL and NOT RUN separately, labels rule-based fixture runs,
+  and enforces request and spend caps.
+- **Implemented LLM cost accounting.** It covers both cache-write durations, a long-context
+  price tier and failed attempts, and never reports unknown cost as zero. Unit-tested.
+- **Set up CI with six required jobs:** strict typing including the optional
+  semantic-search dependency, a base install without it, the PostgreSQL suite with
+  coverage gates, a no-skip security suite, reversible migrations, browser tests and
+  Docker builds.
+
+## Measured (real runs, no paid model calls)
+
+- **Compared retrieval configurations** on 12 labelled questions, on SQLite and on
+  PostgreSQL + pgvector. Semantic dense retrieval (bge-small, ONNX) reached a hit rate @3
+  of 12/12, against 11/12 for the lexical default. pgvector median search was 27 ms vs
+  54 ms.
+- **Measured memory in a 512 MB container across repeated runs.**
+  - Lexical: ~153 MiB peak.
+  - Semantic: ~318 MiB typical peak, one 475 MiB outlier, ~298 MiB resident.
+  - Conclusion: not recommended for Render's free tier.
+- **Found and fixed a container bug.** The non-root API user couldn't write the model
+  cache, so every semantic ingestion failed. The fix bakes the model into the image.
+- **Measured prompt-injection exposure by retrieval config (rankings only).** Semantic
+  dense put injected passages in 11 of 20 top-4 slots, against 7 of 20 for the lexical
+  default. Kept the lexical default because of it.
+
+## Not verified (state plainly if asked)
+
+- **No live Claude evaluation was run** ($0 budget). Unknown: answer quality, tool-selection
+  accuracy, injection resistance, live latency and cost.
+- **The model comparison and the ReAct fixed-vs-model-selected experiment: NOT RUN.** The
+  harness for both exists and was checked with the fixture policy only.
+- **The production smoke test with a signed-in account was not run by me.** The script is
+  ready (`scripts/assistant_smoke.py`). Only unauthenticated checks of the deployment were
+  made.
+- **Semantic grounding (whether cited text supports each answer) had no human review.**
