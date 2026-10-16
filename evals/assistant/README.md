@@ -94,3 +94,12 @@ python scripts/assistant_eval.py --dataset holdout --models <model> --confirm-ho
 ```
 
 When the caps are reached, the remaining cases are recorded as NOT RUN.
+
+## Live evaluation: NOT RUN (project budget $0)
+
+No paid Claude calls are made in this project; the earlier staged paid plan is cancelled.
+
+The live commands above stay as documentation of how the runner works. Every live result
+in this repository is recorded as NOT RUN, and fixture results are never reported as model
+results. `scripts/check_anthropic_key.py` makes no token-generating calls, but it is not
+needed under this budget.

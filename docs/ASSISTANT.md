@@ -218,10 +218,22 @@ python scripts/assistant_eval.py --dataset holdout --models <chosen> --confirm-h
 
 ### Configuring the API key (never paste it into chat or commit it)
 
+> **This project's budget is $0.** No key is configured, and the deployed demo runs only
+> the fixture policy. This section documents how the code would be configured; it was not
+> used.
+
 | Where the model runs | Set `SF_ANTHROPIC_API_KEY` here | Spend control |
 |---|---|---|
 | Deployed demo (Render) | Render dashboard → **solutionforge-api** → **Environment** → `SF_ANTHROPIC_API_KEY`, as a secret value. Then **Save, rebuild and deploy**. The browser never receives it | `SF_ASSISTANT_RUN_BUDGET_USD` (blueprint: 0.02 per run) |
 | Local evals (`scripts/assistant_eval.py`) | `apps/api/.env` (git-ignored), line `SF_ANTHROPIC_API_KEY=…`, or a shell variable | Mandatory `--max-requests` and `--max-spend-usd` per invocation |
+
+To check a local key without spending anything:
+
+```bash
+python scripts/check_anthropic_key.py anthropic:claude-haiku-5-5 anthropic:claude-sonnet-5-5
+```
+
+It calls only the Models API and never prints the key.
 
 To check that the key is active on Render without exposing it, run
 `scripts/assistant_smoke.py`. It prints the models offered; `anthropic:…` appears only
@@ -251,8 +263,8 @@ default model is the free fixture; `--model anthropic:…` makes paid calls.
 
 ### Deployment
 
-`render.yaml` takes `SF_ANTHROPIC_API_KEY` as a prompted, server-side secret (`sync:
-false`). It is never sent to the browser, and the BFF only forwards to the API.
+`render.yaml` deliberately sets no `SF_ANTHROPIC_API_KEY` (project budget $0). If one were
+added in Render's dashboard, it would stay server-side; the BFF only forwards to the API.
 
 - **Logs** are structured JSON. The assistant logs run IDs and exception types, never
   prompts, answers or keys.
@@ -263,8 +275,9 @@ false`). It is never sent to the browser, and the BFF only forwards to the API.
 
 ## Known limitations
 
-- **No live model results.** Live evaluation needs an Anthropic API key, and none was
-  available. The model comparison and the ReAct experiment are **BLOCKED**, not run.
+- **No live model results.** The project budget is $0, so no paid Claude calls were made.
+  Live evals, the model comparison and the ReAct experiment are **NOT RUN**. The deployed
+  demo runs the labelled fixture policy.
 - **The fixture policy is not a model.** It shows the harness, scoring and approval flow
   work. Its pass rates say nothing about model quality.
 - **Small datasets.** 30 dev and 10 held-out cases, and 12 retrieval questions. One case
