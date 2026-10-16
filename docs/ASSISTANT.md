@@ -223,6 +223,14 @@ python scripts/assistant_eval.py --dataset holdout --models <chosen> --confirm-h
 | Deployed demo (Render) | Render dashboard → **solutionforge-api** → **Environment** → `SF_ANTHROPIC_API_KEY`, as a secret value. Then **Save, rebuild and deploy**. The browser never receives it | `SF_ASSISTANT_RUN_BUDGET_USD` (blueprint: 0.02 per run) |
 | Local evals (`scripts/assistant_eval.py`) | `apps/api/.env` (git-ignored), line `SF_ANTHROPIC_API_KEY=…`, or a shell variable | Mandatory `--max-requests` and `--max-spend-usd` per invocation |
 
+To check a local key without spending anything:
+
+```bash
+python scripts/check_anthropic_key.py anthropic:claude-haiku-5-5 anthropic:claude-sonnet-5-5
+```
+
+It calls only the Models API and never prints the key.
+
 To check that the key is active on Render without exposing it, run
 `scripts/assistant_smoke.py`. It prints the models offered; `anthropic:…` appears only
 when a key is set.
