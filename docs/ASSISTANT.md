@@ -124,7 +124,7 @@ Generation and embeddings are configured separately.
 
 | | Value |
 |---|---|
-| Embedders | `hashing-v1`: lexical, offline, always available. `bge-small-en-v1.5`: BAAI, MIT licence, via fastembed/ONNX, 384 dimensions, unit-normalised. Opt-in with `SF_SEMANTIC_EMBEDDER_ENABLED` |
+| Embedders | `hashing-v1`: lexical, offline, always available. Memory and container notes: [benchmarks §2b](ASSISTANT_BENCHMARKS.md). `bge-small-en-v1.5`: BAAI, MIT licence, via fastembed/ONNX, 384 dimensions, unit-normalised. Opt-in with `SF_SEMANTIC_EMBEDDER_ENABLED` |
 | Storage | `vector(1024)` in pgvector. 384-dimension vectors are zero-padded, which preserves cosine similarity. The embedder is fixed per knowledge base, and queries use the same one |
 | Metric | Cosine (HNSW index on PostgreSQL) |
 | Chunking | Paragraph and sentence packing with exact character offsets. Default 800 characters, 120 overlap, set per knowledge base |
@@ -215,6 +215,39 @@ python scripts/assistant_eval.py --dataset dev --models anthropic:claude-haiku-5
 python scripts/assistant_eval.py --dataset holdout --models <chosen> --confirm-holdout \
     --max-requests 100 --max-spend-usd 0.50                                         # once, at the end
 ```
+
+### Configuring the API key (never paste it into chat or commit it)
+
+| Where the model runs | Set `SF_ANTHROPIC_API_KEY` here | Spend control |
+|---|---|---|
+| Deployed demo (Render) | Render dashboard → **solutionforge-api** → **Environment** → `SF_ANTHROPIC_API_KEY`, as a secret value. Then **Save, rebuild and deploy**. The browser never receives it | `SF_ASSISTANT_RUN_BUDGET_USD` (blueprint: 0.02 per run) |
+| Local evals (`scripts/assistant_eval.py`) | `apps/api/.env` (git-ignored), line `SF_ANTHROPIC_API_KEY=…`, or a shell variable | Mandatory `--max-requests` and `--max-spend-usd` per invocation |
+
+To check that the key is active on Render without exposing it, run
+`scripts/assistant_smoke.py`. It prints the models offered; `anthropic:…` appears only
+when a key is set.
+
+### Post-deploy verification
+
+```bash
+python scripts/assistant_smoke.py https://solutionforge-api.onrender.com --timeout 120
+```
+
+It creates a labelled throwaway account and organization ("SMOKE TEST (assistant) - safe
+to delete"), then checks:
+
+- the configuration (models, limits, embedder);
+- a sourced answer with its citations retrieved in that run;
+- a ticket lookup;
+- a draft that is not a ticket until approved;
+- that explicit approval creates exactly one ticket;
+- that repeat and concurrent approvals create nothing more;
+- that a stale hash is refused after an edit;
+- that an unsupported question abstains.
+
+Afterwards it deletes the demo knowledge base. Users, organizations, tickets, drafts and
+runs have no delete API, and audit rows are append-only, so those remain, labelled. The
+default model is the free fixture; `--model anthropic:…` makes paid calls.
 
 ### Deployment
 

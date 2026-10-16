@@ -40,6 +40,7 @@ from solutionforge.assistant.evals import (
 )
 from solutionforge.assistant.harness import API_ROOT, Env, KBSpec, build_env
 from solutionforge.assistant.service import PROMPT_VERSION, AssistantConfig
+from solutionforge.core.config import Settings
 from solutionforge.domain import AssistantEvent, Chunk, Document, SimTicket, TicketDraft
 from solutionforge.llm.pricing import PRICES_ACCESSED, PRICES_SOURCE_URL, usd_to_micro
 
@@ -354,7 +355,9 @@ async def main(argv: list[str]) -> int:
         cases = cases[: args.limit]
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     live = [m for m in models if not m.startswith("fixture:")]
-    key = os.environ.get("SF_ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    # Shell variable or apps/api/.env (via Settings); the value is never printed or stored.
+    secret = Settings().anthropic_api_key
+    key = (secret.get_secret_value() if secret else None) or os.environ.get("ANTHROPIC_API_KEY")
     mode = "FIXTURE" if not live else ("LIVE" if key else "BLOCKED")
     if live and (args.max_requests is None or args.max_spend_usd is None):
         print("live runs need --max-requests and --max-spend-usd", file=sys.stderr)

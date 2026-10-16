@@ -7,7 +7,10 @@ ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /build
 COPY apps/api/pyproject.toml ./
 COPY apps/api/src ./src
-RUN python -m venv /opt/venv && /opt/venv/bin/pip install --upgrade pip && /opt/venv/bin/pip install .
+# Optional extras, e.g. --build-arg API_EXTRAS="[semantic]" for the bge-small embedder
+# (adds ONNX Runtime; see docs/ASSISTANT_BENCHMARKS.md for its measured memory cost).
+ARG API_EXTRAS=""
+RUN python -m venv /opt/venv && /opt/venv/bin/pip install --upgrade pip     && /opt/venv/bin/pip install ".${API_EXTRAS}"
 
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/venv/bin:$PATH"
@@ -21,6 +24,12 @@ COPY corpus/harbor-pine ./corpus/harbor-pine
 ENV SF_CORPUS_DIR=/app/corpus/harbor-pine
 COPY --chmod=755 infra/docker/api-start.sh /usr/local/bin/api-start
 COPY --chmod=755 infra/docker/sf-env.sh /usr/local/bin/sf-env
+# The app runs as a non-root user whose home is not writable, so model caches must live
+# elsewhere. With the semantic extra, bake the embedding model into the image at build
+# time: no ~65 MB download on every deploy or cold start, and no runtime write access.
+ARG API_EXTRAS=""
+ENV HF_HOME=/tmp/huggingface SF_EMBEDDING_CACHE_DIR=/opt/models
+RUN mkdir -p /opt/models     && if python -c "import fastembed" 2>/dev/null; then          python -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5', cache_dir='/opt/models')";        fi     && chown -R app:app /opt/models
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
