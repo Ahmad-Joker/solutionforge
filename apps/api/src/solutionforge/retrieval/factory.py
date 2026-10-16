@@ -10,6 +10,8 @@ from solutionforge.retrieval.embeddings import (
     EmbedderRegistry,
     FastEmbedEmbedder,
     HashingEmbedder,
+    SemanticExtraMissing,
+    semantic_extra_installed,
 )
 from solutionforge.retrieval.search import Retriever
 
@@ -20,6 +22,9 @@ def build_embedders(settings: Settings | None = None) -> EmbedderRegistry:
     new knowledge bases use."""
     available: list[Embedder] = [HashingEmbedder()]
     if settings is not None and settings.semantic_embedder_enabled:
+        if not semantic_extra_installed():
+            # Fail at startup, not on the first document or query.
+            raise SemanticExtraMissing()
         available.append(
             FastEmbedEmbedder(
                 settings.semantic_embedding_model,

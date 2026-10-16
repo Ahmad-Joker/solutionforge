@@ -117,8 +117,9 @@ class FastEmbedEmbedder:
 
     Storage: the pgvector column is ``vector(1024)``. Vectors are zero-padded to that width.
     Padding with zeros changes neither dot products nor norms, so cosine similarity (and HNSW
-    ordering) is identical to the native 384-dim space; ``tests/unit`` proves it. A knowledge
-    base never mixes embedders: its ``embedder`` name selects one at ingest *and* query time.
+    ordering) is identical to the native 384-dim space (see ``tests/unit/test_embeddings.py``).
+    A knowledge base never mixes embedders: its ``embedder`` name selects one at ingest *and*
+    query time.
 
     The model loads lazily on first use (first run downloads ~65 MB to ``cache_dir``) and runs
     in a worker thread so ONNX inference never blocks the event loop.
@@ -143,8 +144,11 @@ class FastEmbedEmbedder:
     def _load(self) -> Any:
         with self._lock:
             if self._model is None:
-                from fastembed import TextEmbedding  # optional dependency: imported lazily
-
+                try:
+                    # Optional dependency ("semantic" extra), imported only on first use.
+                    from fastembed import TextEmbedding
+                except ImportError as exc:
+                    raise SemanticExtraMissing() from exc
                 self._model = TextEmbedding(self.model_name, cache_dir=self.cache_dir)
         return self._model
 
@@ -167,6 +171,23 @@ class FastEmbedEmbedder:
             return self._pad(next(iter(self._load().query_embed([text]))))
 
         return await asyncio.to_thread(run)
+
+
+SEMANTIC_INSTALL_HINT = 'pip install "solutionforge[semantic]" (or -e ".[semantic]")'
+
+
+class SemanticExtraMissing(RuntimeError):
+    def __init__(self) -> None:
+        super().__init__(
+            "the semantic embedder needs the optional 'fastembed' package: " + SEMANTIC_INSTALL_HINT
+        )
+
+
+def semantic_extra_installed() -> bool:
+    """Whether the optional ``semantic`` extra is importable, without importing it."""
+    import importlib.util
+
+    return importlib.util.find_spec("fastembed") is not None
 
 
 async def embed_query(embedder: Embedder, text: str) -> list[float]:
