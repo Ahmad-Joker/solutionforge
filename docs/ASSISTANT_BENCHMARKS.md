@@ -111,6 +111,57 @@ So the change improves retrieval but makes one adversarial document easier to re
 argues for the planned live injection evals before adopting it. The code default stays
 lexical + hybrid (no download), and the deployed demo keeps the lexical embedder.
 
+## 2b. Semantic embedder memory under a 512 MB limit (MEASURED)
+
+Measured to decide whether the embedder fits Render's free instance (512 MB). Script:
+`infra/scripts/measure_api_memory.sh` (2026-10-16, Docker Desktop on WSL2).
+
+**Setup.**
+
+- Images: the API image built without and with `--build-arg API_EXTRAS="[semantic]"`.
+- Container limit: 512 MiB (`--memory 512m`, swap equal to memory, so effectively none).
+- Settings: production (standard password hashing), embedded worker, migrations on
+  start, PostgreSQL 16 + pgvector in a sibling container.
+- Workload: `scripts/assistant_smoke.py`. It registers, loads and indexes the 20 demo
+  documents, then makes 7 assistant runs and 5 approval calls.
+- Memory: the cgroup v2 `memory.peak` and `memory.current` counters. These include page
+  cache, so they are an upper bound on what the process itself needs.
+
+Repeated runs, same workload (now 14 checks, including the concurrent-approval race):
+
+| Image | Embedder | Runs | After boot | Peak (`memory.peak`) | Resident after workload (`anon`) | OOM-killed | Smoke checks |
+|---|---|---|---|---|---|---|---|
+| base (413 MB image) | hashing-v1 | 5 | 86.8–87.9 MiB (one run 155.7) | 152.8–153.2 MiB (one run 221.3) | 87.1 MiB | never | 14/14 every run |
+| semantic (814 MB image, model baked in) | bge-small-en-v1.5 | 6 | 86.7–88.1 MiB (one run 128.0) | 317.2–318.0 MiB in 5 runs, **474.9 MiB in 1 run** | 298.1–298.2 MiB | never | 14/14 every run |
+
+- **Baseline (lexical):** ~153 MiB peak, ~87 MiB resident.
+- **Semantic:** the model adds ~210 MiB of resident memory that stays allocated once used.
+  It is process memory, not reclaimable page cache: page cache was ~0 MiB in the runs
+  where it was split out.
+- **Outlier:** one semantic run peaked at 475 MiB, within 37 MiB of the limit. It was the
+  first run after a rebuild; its cause was not isolated.
+
+**Finding: a container bug, fixed.** The first semantic run failed: every ingestion
+dead-lettered with `Permission denied`. The non-root `app` user couldn't write the
+Hugging Face download cache.
+
+- That would have broken a semantic deployment on Render.
+- The image now bakes the model in at build time (`/opt/models`) and sets
+  `HF_HOME=/tmp/huggingface`, so nothing is downloaded at runtime.
+
+**Recommendation: do not enable the semantic embedder on Render's free 512 MB instance.**
+
+- **Too tight.** It usually fits (peak ~318 MiB), but the worst observed peak (475 MiB)
+  leaves under 40 MiB.
+- **Not measured:** concurrent requests, larger corpora, and Render's own accounting.
+- **Adversarial regression.** Dense retrieval also has the documented regression (§2, case dev-inj-04),
+  which is not yet mitigated.
+- **Viable on a larger instance (≥1 GB).** That needs:
+  1. an image built with `API_EXTRAS="[semantic]"`;
+  2. `SF_SEMANTIC_EMBEDDER_ENABLED=true`;
+  3. a new knowledge base, because existing ones keep their embedder.
+- **Render build arguments:** how to pass them through Render's blueprint was not verified.
+
 ## 3. Agent-behaviour evals
 
 ### FIXTURE runs: harness checks, not model results
@@ -137,6 +188,7 @@ lexical + hybrid (no download), and the deployed demo keeps the lexical embedder
 |---|---|---|---|---|---|
 | anthropic:claude-haiku-5-5 | — | — | 30 | BLOCKED: no API key | [report](../evals/assistant/results/1016-152253-dev/report.md) |
 | anthropic:claude-sonnet-5-5 | — | — | 30 | BLOCKED: no API key | same |
+| anthropic:claude-haiku-5-5 (smoke, 3 cases) | — | — | 3 | BLOCKED: no API key, no spend cap approved | [report](../evals/assistant/results/1016-173527-dev/report.md) |
 
 These tables are empty because nothing ran, and fixture numbers are never copied into them.
 

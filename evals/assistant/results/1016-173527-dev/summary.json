@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "dataset": "dev.jsonl",
+    "mode": "BLOCKED",
+    "started": "2026-10-16T17:35:27+00:00",
+    "models": "anthropic:claude-haiku-5-5",
+    "tool_mode": "model",
+    "embedder": "hashing-v1",
+    "chunking": "800/120",
+    "top_k": 4,
+    "retrieval_strategy": "hybrid",
+    "prompt_version": "assistant-v1",
+    "corpus_version": "",
+    "caps": "requests=15 spend_usd=0.05 (used: 0 requests, $0.0000)",
+    "database": "SQLite (throwaway)",
+    "label": "live smoke attempt: BLOCKED (no key)",
+    "python": "3.13.0",
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "pricing_accessed": "2026-10-16"
+  },
+  "summaries": {
+    "anthropic:claude-haiku-5-5": {
+      "cases": 3,
+      "ran": 0,
+      "passed": 0,
+      "failed": 0,
+      "not_run": 3,
+      "pass_rate": null,
+      "dimensions": {
+        "retrieval": {
+          "passed": 0,
+          "applicable": 0
+        },
+        "tool_selection": {
+          "passed": 0,
+          "applicable": 0
+        },
+        "argument_validity": {
+          "passed": 0,
+          "applicable": 0
+        },
+        "task_completion": {
+          "passed": 0,
+          "applicable": 0
+        },
+        "grounded_citations": {
+          "passed": 0,
+          "applicable": 0
+        },
+        "abstention": {
+          "passed": 0,
+          "applicable": 0
+        },
+        "approval_enforcement": {
+          "passed": 0,
+          "applicable": 0
+        }
+      },
+      "categories": {
+        "answerable": {
+          "passed": 0,
+          "ran": 0,
+          "not_run": 3
+        },
+        "tool": {
+          "passed": 0,
+          "ran": 0,
+          "not_run": 0
+        },
+        "unanswerable": {
+          "passed": 0,
+          "ran": 0,
+          "not_run": 0
+        },
+        "injection": {
+          "passed": 0,
+          "ran": 0,
+          "not_run": 0
+        }
+      },
+      "latency_ms": {
+        "n": 0,
+        "median": null,
+        "p95": null
+      },
+      "cost": {
+        "total_micro_usd": null,
+        "avg_per_attempt_micro_usd": null,
+        "per_success_micro_usd": null
+      },
+      "run_errors": 0,
+      "limit_reached": 0
+    }
+  }
+}
