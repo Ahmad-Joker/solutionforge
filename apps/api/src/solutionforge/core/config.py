@@ -116,6 +116,30 @@ class Settings(BaseSettings):
     # escaping can expand that, hence the headroom).
     max_request_bytes: int = Field(default=8 * 1024 * 1024, ge=1024)
 
+    # Embeddings. hashing-v1 (lexical, offline) is always available. The semantic embedder
+    # (fastembed / ONNX) is opt-in because its first use downloads the model.
+    semantic_embedder_enabled: bool = False
+    semantic_embedding_model: str = "BAAI/bge-small-en-v1.5"
+    semantic_embedder_name: str = "bge-small-en-v1.5"
+    semantic_embedding_dim: int = Field(default=384, ge=8, le=1024)
+    embedding_cache_dir: str | None = None
+    default_embedder: str = "hashing-v1"
+
+    # Business assistant (native tool calling). The model is "provider:model"; Anthropic
+    # model IDs come from the provider's published model list (none are invented here).
+    # Without an API key the assistant runs the deterministic fixture policy instead and
+    # labels every run "fixture:policy-v1": it is a harness check, not model quality.
+    assistant_model: str = "anthropic:claude-haiku-5-5"
+    assistant_max_turns: int = Field(default=6, ge=1, le=20)
+    assistant_max_tool_calls: int = Field(default=6, ge=1, le=30)
+    assistant_deadline_seconds: float = Field(default=60.0, gt=0, le=600)
+    assistant_provider_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
+    assistant_max_retries: int = Field(default=2, ge=0, le=5)
+    assistant_max_tokens: int = Field(default=1024, ge=64, le=8192)
+    assistant_top_k: int = Field(default=4, ge=1, le=20)
+    # Per-run spend cap (estimated from list prices), in USD.
+    assistant_run_budget_usd: float = Field(default=0.05, gt=0, le=10)
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     @field_validator("database_url", mode="before")

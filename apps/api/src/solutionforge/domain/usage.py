@@ -31,7 +31,10 @@ class UsageRecord(UUIDPrimaryKeyMixin, TenantScopedMixin, Base):
     input_tokens: Mapped[int] = mapped_column(nullable=False, default=0)
     output_tokens: Mapped[int] = mapped_column(nullable=False, default=0)
     cache_read_tokens: Mapped[int] = mapped_column(nullable=False, default=0)
-    cache_write_tokens: Mapped[int] = mapped_column(nullable=False, default=0)
+    cache_write_tokens: Mapped[int] = mapped_column(nullable=False, default=0)  # 5-minute TTL
+    cache_write_1h_tokens: Mapped[int] = mapped_column(
+        nullable=False, default=0, server_default="0"
+    )
     cost_micro_usd: Mapped[int] = mapped_column(sa.BigInteger, nullable=False, default=0)
     latency_ms: Mapped[int] = mapped_column(nullable=False, default=0)
     attempt: Mapped[int] = mapped_column(nullable=False, default=1)

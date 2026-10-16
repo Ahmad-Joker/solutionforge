@@ -70,6 +70,12 @@ class AuditEventType(StrEnum):
     DEPLOYMENT_BLOCKED = "workflow.deployment_blocked"
     DEPLOYMENT_GATE_OVERRIDDEN = "workflow.deployment_gate_overridden"
 
+    ASSISTANT_RUN = "assistant.run"
+    TICKET_DRAFT_CREATED = "ticket_draft.created"
+    TICKET_DRAFT_EDITED = "ticket_draft.edited"
+    TICKET_DRAFT_APPROVED = "ticket_draft.approved"
+    TICKET_DRAFT_REJECTED = "ticket_draft.rejected"
+
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "audit_events"

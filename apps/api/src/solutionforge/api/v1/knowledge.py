@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from solutionforge.api.deps import RequestMetaDep, SessionDep, TenantDep
+from solutionforge.core.errors import ValidationFailed
 from solutionforge.domain.knowledge import Document, DocumentStatus, KnowledgeBase
 from solutionforge.retrieval.search import DEFAULT_MIN_DENSE_SCORE, Retriever, Strategy
 from solutionforge.services import kb_service as svc
@@ -31,6 +32,8 @@ class CreateKB(BaseModel):
     description: str = Field(default="", max_length=2000)
     chunk_size: int = Field(default=800, ge=200, le=4000)
     chunk_overlap: int = Field(default=120, ge=0, le=1000)
+    # Optional: one of the embedders enabled in this deployment (default: SF_DEFAULT_EMBEDDER).
+    embedder: str | None = Field(default=None, max_length=64)
 
 
 class KBOut(BaseModel):
@@ -94,6 +97,15 @@ def _doc_out(d: Document) -> DocumentOut:
     )
 
 
+def _embedder_name(request: Request, requested: str | None) -> str:
+    embedders = _retriever(request).embedders
+    if requested is None:
+        return embedders.default.name
+    if requested not in embedders.names():
+        raise ValidationFailed("unknown embedder", details={"available": embedders.names()})
+    return requested
+
+
 @router.post("/knowledge-bases", response_model=KBOut, status_code=status.HTTP_201_CREATED)
 async def create_kb(
     body: CreateKB, request: Request, session: SessionDep, ctx: TenantDep, meta: RequestMetaDep
@@ -103,7 +115,7 @@ async def create_kb(
         ctx,
         name=body.name,
         description=body.description,
-        embedder=_retriever(request).embedder.name,
+        embedder=_embedder_name(request, body.embedder),
         chunk_size=body.chunk_size,
         chunk_overlap=body.chunk_overlap,
         request=meta,

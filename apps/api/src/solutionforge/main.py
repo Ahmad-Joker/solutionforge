@@ -18,6 +18,7 @@ from solutionforge.api.guard import RequestGuardMiddleware
 from solutionforge.api.middleware import RequestContextMiddleware
 from solutionforge.api.v1 import (
     approvals,
+    assistant,
     audit,
     auth,
     evaluation,
@@ -27,6 +28,7 @@ from solutionforge.api.v1 import (
     usage,
     workflows,
 )
+from solutionforge.assistant.service import build_assistant
 from solutionforge.background import run_background
 from solutionforge.core.config import Environment, Settings, get_settings
 from solutionforge.core.logging import configure_logging, get_logger
@@ -99,7 +101,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = build_sessionmaker(engine)
     app.state.llm_service = build_llm_service(settings, app.state.sessionmaker)
     app.state.tool_executor = build_tool_executor(settings, app.state.sessionmaker)
-    app.state.retriever = build_retriever(app.state.sessionmaker)
+    app.state.retriever = build_retriever(app.state.sessionmaker, settings)
+    app.state.assistant = build_assistant(
+        app.state.sessionmaker, app.state.retriever, app.state.llm_service
+    )
     app.state.step_registry = default_registry(
         app.state.llm_service, app.state.tool_executor, app.state.retriever
     )
@@ -129,6 +134,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     v1.include_router(knowledge.router)
     v1.include_router(approvals.router)
     v1.include_router(evaluation.router)
+    v1.include_router(assistant.router)
     app.include_router(v1)
     app.include_router(health.router)
     app.include_router(metrics_api.router)

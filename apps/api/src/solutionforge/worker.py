@@ -34,7 +34,7 @@ async def main() -> None:
         pool_timeout=settings.database_pool_timeout_seconds,
     )
     sessionmaker = build_sessionmaker(db)
-    retriever = build_retriever(sessionmaker)
+    retriever = build_retriever(sessionmaker, settings)
     registry = default_registry(
         build_llm_service(settings, sessionmaker),
         build_tool_executor(settings, sessionmaker),

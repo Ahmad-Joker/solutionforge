@@ -56,6 +56,7 @@ class UsageRecordOut(BaseModel):
     output_tokens: int
     cache_read_tokens: int
     cache_write_tokens: int
+    cache_write_1h_tokens: int
     cost_usd: Decimal
     latency_ms: int
     attempt: int
@@ -155,6 +156,7 @@ async def usage_records(
             output_tokens=r.output_tokens,
             cache_read_tokens=r.cache_read_tokens,
             cache_write_tokens=r.cache_write_tokens,
+            cache_write_1h_tokens=r.cache_write_1h_tokens,
             cost_usd=micro_to_usd(r.cost_micro_usd),
             latency_ms=r.latency_ms,
             attempt=r.attempt,

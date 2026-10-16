@@ -25,6 +25,7 @@ _TOKENS = (
     + UsageRecord.output_tokens
     + UsageRecord.cache_read_tokens
     + UsageRecord.cache_write_tokens
+    + UsageRecord.cache_write_1h_tokens
 )
 
 
@@ -65,6 +66,7 @@ class DbUsageLedger:
                     output_tokens=entry.usage.output_tokens,
                     cache_read_tokens=entry.usage.cache_read_tokens,
                     cache_write_tokens=entry.usage.cache_write_tokens,
+                    cache_write_1h_tokens=entry.usage.cache_write_1h_tokens,
                     cost_micro_usd=entry.cost_micro_usd,
                     latency_ms=entry.latency_ms,
                     attempt=entry.attempt,

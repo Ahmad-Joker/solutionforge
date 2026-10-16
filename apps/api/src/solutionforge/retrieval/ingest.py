@@ -21,7 +21,7 @@ from solutionforge.core.clock import utcnow
 from solutionforge.core.logging import get_logger
 from solutionforge.domain.knowledge import Chunk, Document, DocumentStatus, KnowledgeBase
 from solutionforge.retrieval.chunking import chunk_text
-from solutionforge.retrieval.embeddings import Embedder
+from solutionforge.retrieval.embeddings import Embedder, EmbedderRegistry, as_registry
 from solutionforge.workflows.engine import default_worker_id
 
 log = get_logger(__name__)
@@ -36,7 +36,7 @@ class IngestionWorker:
     def __init__(
         self,
         sessionmaker: async_sessionmaker[AsyncSession],
-        embedder: Embedder,
+        embedder: Embedder | EmbedderRegistry,
         *,
         worker_id: str | None = None,
         lease_seconds: float = 300,
@@ -44,7 +44,7 @@ class IngestionWorker:
         backoff_base_seconds: float = 30,
     ) -> None:
         self.sessionmaker = sessionmaker
-        self.embedder = embedder
+        self.embedders = as_registry(embedder)
         self.worker_id = worker_id or default_worker_id()
         self.lease_seconds = lease_seconds
         self.max_attempts = max_attempts
@@ -95,10 +95,11 @@ class IngestionWorker:
         if doc.lease_owner != self.worker_id or doc.status != DocumentStatus.INGESTING:
             return doc.status
         try:
+            embedder = self.embedders.get(kb.embedder)  # the model this KB is indexed with
             pieces = chunk_text(doc.content, size=kb.chunk_size, overlap=kb.chunk_overlap)
             vectors: list[list[float]] = []
             for i in range(0, len(pieces), EMBED_BATCH):
-                vectors += await self.embedder.embed([p.text for p in pieces[i : i + EMBED_BATCH]])
+                vectors += await embedder.embed([p.text for p in pieces[i : i + EMBED_BATCH]])
         except Exception as exc:  # parse/embed failure: retry or dead-letter
             return await self._fail(doc, exc)
 
